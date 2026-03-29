@@ -27,6 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
+      - name: Compute image names
+        id: image
+        shell: bash
+        run: |
+          repo="$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "ghcr=ghcr.io/${repo}-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub=${{ secrets.DOCKERHUB_USERNAME }}/yealink-contacts-ui" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a
 
@@ -50,7 +58,7 @@ jobs:
         id: ghcr_meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf
         with:
-          images: ghcr.io/${{ github.repository }}-${{ matrix.component }}
+          images: ${{ steps.image.outputs.ghcr }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -62,7 +70,7 @@ jobs:
         id: dockerhub_meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/yealink-contacts-ui
+          images: ${{ steps.image.outputs.dockerhub }}
           tags: |
             type=semver,pattern={{version}},prefix=${{ matrix.component }}-
             type=semver,pattern={{major}}.{{minor}},prefix=${{ matrix.component }}-
@@ -88,7 +96,7 @@ jobs:
       - name: Generate SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
         with:
-          image: ghcr.io/${{ github.repository }}-${{ matrix.component }}@${{ steps.build.outputs.digest }}
+          image: ${{ steps.image.outputs.ghcr }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ matrix.component }}.spdx.json
 
@@ -101,7 +109,7 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
         with:
-          subject-name: ghcr.io/${{ github.repository }}-${{ matrix.component }}
+          subject-name: ${{ steps.image.outputs.ghcr }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
