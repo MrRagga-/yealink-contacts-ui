@@ -1,0 +1,25 @@
+<svg width="960" height="280" viewBox="0 0 960 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="panel" x1="84" y1="31" x2="321" y2="258" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A756A"/>
+      <stop offset="1" stop-color="#0C4E7A"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="237" y1="32" x2="828" y2="239" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8EB"/>
+      <stop offset="1" stop-color="#ECE3CF"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="280" rx="38" fill="#F7F0E2"/>
+  <rect x="24" y="24" width="912" height="232" rx="30" fill="url(#shine)"/>
+  <g transform="translate(34 20)">
+    <rect x="0" y="0" width="240" height="240" rx="40" fill="url(#panel)"/>
+    <image href="/logo-mark.svg" x="16" y="16" width="208" height="208"/>
+  </g>
+  <g fill="#1F1A14">
+    <text x="312" y="108" font-family="IBM Plex Sans, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0.28em">LOCAL CONTACT SYNC</text>
+    <text x="312" y="164" font-family="Space Grotesk, IBM Plex Sans, Arial, sans-serif" font-size="66" font-weight="700">Yealink Contacts Sync</text>
+    <text x="314" y="208" font-family="IBM Plex Sans, Arial, sans-serif" font-size="24" fill="#4E675F">Import, normalize, filter, preview, and publish remote phonebooks.</text>
+  </g>
+  <circle cx="888" cy="64" r="16" fill="#FFD37A" opacity="0.78"/>
+  <circle cx="911" cy="88" r="7" fill="#0A756A" opacity="0.68"/>
+</svg>

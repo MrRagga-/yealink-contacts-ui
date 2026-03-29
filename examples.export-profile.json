@@ -1,0 +1,33 @@
+{
+  "name": "Mobil zuerst",
+  "slug": "mobile-first",
+  "description": "Exportiert bevorzugt Mobilnummern und baut die Organisation in den Namen ein.",
+  "is_active": true,
+  "sort_order": 10,
+  "metadata": {},
+  "rule_set": {
+    "filters": {
+      "include_source_ids": [],
+      "exclude_source_ids": [],
+      "include_groups": [],
+      "search_query": null,
+      "blacklist_contact_ids": [],
+      "blacklist_numbers": [],
+      "require_phone": true
+    },
+    "phone_selection": {
+      "allowed_types": ["mobile", "work", "main"],
+      "excluded_types": ["fax"],
+      "priority_order": ["mobile", "work", "main", "home"],
+      "require_phone": true,
+      "max_numbers_per_contact": 1,
+      "normalize_to_e164": true
+    },
+    "name_template": {
+      "expression": "{organization} ?? {full_name} ?? primary_phone",
+      "prefix": "",
+      "suffix": "",
+      "normalize_whitespace": true
+    }
+  }
+}
