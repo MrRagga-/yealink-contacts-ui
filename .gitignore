@@ -23,5 +23,6 @@ app/frontend/coverage/
 app/frontend/.vite/
 app/frontend/node_modules/
 app/frontend/dist/
+*.tsbuildinfo
 app/backend/alembic/versions/__pycache__/
 *.db
