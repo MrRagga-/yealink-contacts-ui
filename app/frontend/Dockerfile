@@ -9,7 +9,7 @@ RUN npm ci
 COPY app/frontend ./
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
 ARG APP_VERSION=0.1.0
 
