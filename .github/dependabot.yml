@@ -2,25 +2,55 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "pip"
     directory: "/app/backend"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    groups:
+      backend-python:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/app/frontend"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    groups:
+      frontend-runtime:
+        dependency-type: "production"
+        patterns:
+          - "*"
+      frontend-tooling:
+        dependency-type: "development"
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/app/backend"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    groups:
+      backend-docker:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/app/frontend"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    groups:
+      frontend-docker:
+        patterns:
+          - "*"
