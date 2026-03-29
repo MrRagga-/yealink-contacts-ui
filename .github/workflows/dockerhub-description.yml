@@ -1,26 +1,31 @@
-name: Docker Hub description
+name: Docker Hub Description
 
 on:
   push:
     branches:
       - main
-      - master
     paths:
+      - DOCKERHUB.md
       - README.md
       - .github/workflows/dockerhub-description.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Update Docker Hub description
+      - name: Update Docker Hub overview
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ secrets.DOCKERHUB_USERNAME }}/yealink-contacts-ui
-          short-description: Yealink Contacts Sync backend and frontend container images
-          readme-filepath: ./README.md
+          repository: mrragga/yealink-contacts-ui
+          short-description: Local-first Yealink contact sync with FastAPI backend and React admin UI.
+          readme-filepath: ./DOCKERHUB.md
