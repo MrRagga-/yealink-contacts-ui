@@ -96,13 +96,16 @@ The GitHub release workflow is configured to:
 
 The Docker Compose setup now serves the frontend through Nginx on port `5173` and proxies `/api` and `/healthz` to the backend.
 
-### Option 2: Local venv and npm
+### Option 2: Local uv and npm
 
 1. `cp .env.example .env`
-2. `cd app/backend && python3 -m venv .venv && . .venv/bin/activate && pip install -e '.[dev]'`
-3. `cd app/frontend && npm install`
-4. Backend: `make backend-dev`
-5. Frontend: `make frontend-dev`
+2. Install `uv`
+3. `cd app/backend && uv sync --locked --extra dev`
+4. `cd app/frontend && npm install`
+5. Backend: `make backend-dev`
+6. Frontend: `make frontend-dev`
+
+The backend dependency graph is locked in `app/backend/uv.lock`, local commands are executed through `uv run`, and Python typing is enforced with `ty`.
 
 ## Demo data
 
@@ -110,8 +113,7 @@ Create demo data:
 
 ```bash
 cd app/backend
-. .venv/bin/activate
-python -m yealink_contacts.jobs.seed_demo
+uv run python -m yealink_contacts.jobs.seed_demo
 ```
 
 ## Source setup
@@ -199,8 +201,9 @@ Backend:
 
 ```bash
 cd app/backend
-. .venv/bin/activate
-pytest
+uv sync --locked --extra dev
+uv run pytest
+uv run ty check src
 ```
 
 Frontend:

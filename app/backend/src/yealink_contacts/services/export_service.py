@@ -19,7 +19,7 @@ settings = get_settings()
 
 
 def list_export_profiles(db: Session) -> list[ExportProfile]:
-    return (
+    return list(
         db.execute(select(ExportProfile).options(joinedload(ExportProfile.rule_set)).order_by(ExportProfile.sort_order))
         .unique()
         .scalars()
@@ -108,7 +108,7 @@ def serialize_export_profile(profile: ExportProfile) -> ExportProfileResponse:
 
 def generate_preview(db: Session, profile: ExportProfile) -> ExportPreviewResponse:
     rules = RuleSetConfig.model_validate(profile.rule_set.rules_json if profile.rule_set else {})
-    contacts = (
+    contacts = list(
         db.execute(
             select(Contact)
             .options(joinedload(Contact.source), joinedload(Contact.phone_numbers), joinedload(Contact.emails))

@@ -26,7 +26,7 @@ from yealink_contacts.services.utils import slugify
 
 
 def list_sources(db: Session) -> list[Source]:
-    return (
+    return list(
         db.execute(
             select(Source).options(joinedload(Source.addressbooks), joinedload(Source.credential)).order_by(Source.name)
         )

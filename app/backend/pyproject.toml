@@ -40,6 +40,7 @@ dev = [
   "pytest-mock>=3.14.0",
   "respx>=0.22.0",
   "ruff>=0.6.9",
+  "ty>=0.0.26",
 ]
 
 [tool.setuptools]
@@ -58,3 +59,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.ty.environment]
+python-version = "3.12"

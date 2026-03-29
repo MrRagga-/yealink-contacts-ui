@@ -2,6 +2,17 @@
 
 FastAPI backend for the Yealink Contacts Sync project.
 
+Development workflow for this package is managed with `uv`, the dependency lock lives in `uv.lock`, and Python typing is checked with `ty`.
+
+Common commands:
+
+```bash
+uv sync --locked --extra dev
+uv run pytest
+uv run ty check src
+uv run uvicorn yealink_contacts.main:app --reload --host 0.0.0.0 --port 8000
+```
+
 This package provides:
 
 - source adapters for Google Contacts and CardDAV

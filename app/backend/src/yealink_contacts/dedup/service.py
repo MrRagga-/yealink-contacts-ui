@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from collections import defaultdict
 from difflib import SequenceMatcher
 
@@ -8,14 +9,14 @@ from yealink_contacts.schemas.contact import DuplicateHint
 
 
 class DuplicateDetector:
-    def build_hints(self, contacts: list[Contact]) -> dict[str, list[DuplicateHint]]:
+    def build_hints(self, contacts: Sequence[Contact]) -> dict[str, list[DuplicateHint]]:
         hints: dict[str, list[DuplicateHint]] = defaultdict(list)
         self._detect_by_phone(contacts, hints)
         self._detect_by_email(contacts, hints)
         self._detect_by_similarity(contacts, hints)
         return hints
 
-    def _detect_by_phone(self, contacts: list[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
+    def _detect_by_phone(self, contacts: Sequence[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
         phone_map: dict[str, list[str]] = defaultdict(list)
         for contact in contacts:
             for phone in contact.phone_numbers:
@@ -33,7 +34,7 @@ class DuplicateDetector:
                         )
                     )
 
-    def _detect_by_email(self, contacts: list[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
+    def _detect_by_email(self, contacts: Sequence[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
         email_map: dict[str, list[str]] = defaultdict(list)
         for contact in contacts:
             for email in contact.emails:
@@ -50,7 +51,7 @@ class DuplicateDetector:
                         )
                     )
 
-    def _detect_by_similarity(self, contacts: list[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
+    def _detect_by_similarity(self, contacts: Sequence[Contact], hints: dict[str, list[DuplicateHint]]) -> None:
         for index, left in enumerate(contacts):
             for right in contacts[index + 1 :]:
                 if not left.full_name or not right.full_name:

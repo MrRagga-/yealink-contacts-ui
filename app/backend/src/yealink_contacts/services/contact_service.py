@@ -26,7 +26,7 @@ def list_contacts(db: Session, query: str | None = None, source_id: str | None =
                 Contact.notes.ilike(like_query),
             )
         )
-    return db.execute(statement.order_by(Contact.full_name)).unique().scalars().all()
+    return list(db.execute(statement.order_by(Contact.full_name)).unique().scalars().all())
 
 
 def get_contact(db: Session, contact_id: str) -> Contact | None:
