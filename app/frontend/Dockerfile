@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 
 ARG APP_VERSION=0.1.0
 WORKDIR /srv/app
@@ -9,7 +9,7 @@ RUN npm ci
 COPY app/frontend ./
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
 ARG APP_VERSION=0.1.0
 
