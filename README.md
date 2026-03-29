@@ -13,8 +13,6 @@
   <a href="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/release.yml"><img src="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/release.yml/badge.svg" alt="Release" /></a>
   <a href="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/codeql.yml"><img src="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/codeql.yml/badge.svg" alt="CodeQL" /></a>
   <a href="https://hub.docker.com/r/mrragga/yealink-contacts-ui"><img src="https://img.shields.io/docker/pulls/mrragga/yealink-contacts-ui?logo=docker" alt="Docker Hub pulls" /></a>
-  <a href="https://github.com/MrRagga-/yealink-contacts-ui/pkgs/container/yealink-contacts-ui-backend"><img src="https://img.shields.io/badge/GHCR-backend-blue?logo=docker" alt="Backend GHCR" /></a>
-  <a href="https://github.com/MrRagga-/yealink-contacts-ui/pkgs/container/yealink-contacts-ui-frontend"><img src="https://img.shields.io/badge/GHCR-frontend-blue?logo=docker" alt="Frontend GHCR" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="Apache 2.0 License" /></a>
 </p>
 
@@ -30,7 +28,7 @@ Local admin tool for importing, normalizing, filtering, previewing, and serving 
   - import and update only
   - mirror source and delete locally removed contacts
 - Release-ready container images for backend and frontend
-- GitHub Actions for CI, tagged releases, GHCR and Docker Hub publishing, SBOM generation, and provenance attestation
+- GitHub Actions for CI, tagged releases, Docker Hub publishing, and SBOM generation
 
 ## Versioning and releases
 
@@ -46,10 +44,9 @@ This project uses Semantic Versioning.
 The GitHub release workflow is configured to:
 
 - publish multi-arch backend and frontend images
-- push to GHCR and Docker Hub
+- push to Docker Hub
 - generate SPDX JSON SBOMs
 - attach SBOMs to the GitHub release
-- publish build provenance attestations
 
 ## Repository layout
 
@@ -166,8 +163,6 @@ Contact updates already happen during sync through upsert behavior keyed by `sou
 
 The release workflow publishes:
 
-- `ghcr.io/<owner>/yealink-contacts-ui-backend:<tag>`
-- `ghcr.io/<owner>/yealink-contacts-ui-frontend:<tag>`
 - `<dockerhub-user>/yealink-contacts-ui:backend-<tag>`
 - `<dockerhub-user>/yealink-contacts-ui:frontend-<tag>`
 - `<dockerhub-user>/yealink-contacts-ui:backend-latest`
@@ -176,8 +171,6 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull ghcr.io/<owner>/yealink-contacts-ui-backend:v0.1.0
-docker pull ghcr.io/<owner>/yealink-contacts-ui-frontend:v0.1.0
 docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.0
 docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.0
 ```
@@ -193,7 +186,6 @@ The release workflow includes:
 
 - SPDX JSON SBOM generation for backend and frontend images
 - artifact upload to GitHub Releases
-- provenance attestation to GHCR
 
 ## Tests
 
@@ -241,7 +233,6 @@ Recommended next steps after publishing:
 3. Add CODEOWNERS if the maintainer set is stable
 4. Enable branch protection on the default branch
 5. Require CI to pass before merge
-6. Configure GitHub Container Registry visibility as intended
 
 ## Security and operations notes
 

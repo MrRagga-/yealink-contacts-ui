@@ -47,14 +47,6 @@ export function AboutPage() {
           <div className="list-card compact-card">
             <strong>{t("containers")}</strong>
             <p className="subtle">
-              <a className="text-link" href={projectMeta.ghcrBackendUrl} target="_blank" rel="noreferrer">
-                GHCR backend
-              </a>
-              {" · "}
-              <a className="text-link" href={projectMeta.ghcrFrontendUrl} target="_blank" rel="noreferrer">
-                GHCR frontend
-              </a>
-              {" · "}
               <a className="text-link" href={projectMeta.dockerHubUrl} target="_blank" rel="noreferrer">
                 Docker Hub
               </a>
