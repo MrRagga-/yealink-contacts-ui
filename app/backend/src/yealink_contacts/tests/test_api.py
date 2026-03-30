@@ -46,3 +46,59 @@ def test_preview_and_xml_endpoints(client, db):
     assert preview.json()["exported"][0]["display_name"] == "Grace Hopper"
     assert xml.status_code == 200
     assert "Grace Hopper" in xml.text
+    assert xml.headers["x-cache"] == "MISS"
+
+    cached = client.get("/api/yealink/phonebook/default.xml")
+    assert cached.status_code == 200
+    assert cached.headers["x-cache"] == "HIT"
+
+    not_modified = client.get(
+        "/api/yealink/phonebook/default.xml",
+        headers={"If-None-Match": cached.headers["etag"]},
+    )
+    assert not_modified.status_code == 304
+
+
+def test_xml_cache_is_invalidated_when_contact_is_deleted(client, db):
+    source = Source(
+        name="Demo",
+        slug="demo",
+        type=SourceType.carddav,
+        is_active=True,
+        tags=[],
+    )
+    db.add(source)
+    db.flush()
+
+    contact = Contact(
+        source_id=source.id,
+        source_contact_id="external-2",
+        full_name="Ada Lovelace",
+        content_hash="hash",
+        raw_payload={},
+        groups=[],
+    )
+    contact.phone_numbers = [
+        ContactPhone(
+            value="+49 30 123",
+            normalized_e164="+4930123",
+            type="work",
+            source_position=0,
+            is_primary=True,
+            is_valid=True,
+        )
+    ]
+    db.add(contact)
+    db.commit()
+
+    first = client.get("/api/yealink/phonebook/default.xml")
+    assert first.status_code == 200
+    assert "Ada Lovelace" in first.text
+
+    deleted = client.delete(f"/api/contacts/{contact.id}")
+    assert deleted.status_code == 200
+
+    second = client.get("/api/yealink/phonebook/default.xml")
+    assert second.status_code == 200
+    assert "Ada Lovelace" not in second.text
+    assert second.headers["x-cache"] == "HIT"

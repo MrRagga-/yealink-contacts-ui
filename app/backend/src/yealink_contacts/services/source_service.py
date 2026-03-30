@@ -22,6 +22,7 @@ from yealink_contacts.schemas.source import (
     SourceUpdate,
 )
 from yealink_contacts.services.audit import write_audit_log
+from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
 from yealink_contacts.services.utils import slugify
 
 
@@ -96,6 +97,8 @@ def delete_source(db: Session, source: Source) -> None:
     write_audit_log(db, "source", source.id, "deleted", {"name": source.name})
     db.delete(source)
     db.commit()
+    invalidate_phonebook_cache()
+    warm_phonebook_cache(db)
 
 
 def get_credential_payload(source: Source) -> SourceCredentialPayload:

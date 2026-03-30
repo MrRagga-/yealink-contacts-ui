@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from yealink_contacts.dedup.service import DuplicateDetector
 from yealink_contacts.models.contact import Contact
 from yealink_contacts.services.audit import write_audit_log
+from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
 
 
 def list_contacts(db: Session, query: str | None = None, source_id: str | None = None) -> list[Contact]:
@@ -60,6 +61,8 @@ def delete_contact(db: Session, contact: Contact) -> None:
     )
     db.delete(contact)
     db.commit()
+    invalidate_phonebook_cache()
+    warm_phonebook_cache(db)
 
 
 def build_duplicate_hints(contacts: list[Contact]) -> dict[str, list]:

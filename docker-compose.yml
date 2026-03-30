@@ -24,8 +24,6 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/yealink_contacts}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
-      PHONEBOOK_BASE_URL: ${PHONEBOOK_BASE_URL:-http://localhost:8000}
-      XML_PUBLIC_BASE_URL: ${XML_PUBLIC_BASE_URL:-http://localhost:8000}
     depends_on:
       db:
         condition: service_healthy

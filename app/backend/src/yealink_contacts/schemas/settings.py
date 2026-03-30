@@ -20,7 +20,7 @@ class AppSettingsBase(BaseModel):
 
 
 class AppSettingsResponse(AppSettingsBase):
-    app_version: str = "0.1.0"
+    app_version: str = "0.1.1"
     release_model: str = "Semantic Versioning via Git tags"
 
 

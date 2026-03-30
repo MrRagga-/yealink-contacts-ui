@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 from yealink_contacts.models.export_profile import ExportProfile, RuleSet
 from yealink_contacts.schemas.config import AppConfigExport
 from yealink_contacts.schemas.settings import AppSettingsUpdate
-from yealink_contacts.services.export_service import list_export_profiles, normalize_profile_slug
+from yealink_contacts.services.export_service import (
+    invalidate_phonebook_cache,
+    list_export_profiles,
+    normalize_profile_slug,
+    warm_phonebook_cache,
+)
 from yealink_contacts.services.settings_service import get_app_settings, update_app_settings
 from yealink_contacts.services.source_service import (
     create_source,
@@ -78,4 +83,6 @@ def import_configuration(db: Session, payload: AppConfigExport) -> AppConfigExpo
         entity.rule_set = RuleSet(rules_json=profile.rule_set.model_dump(mode="json"))
         db.add(entity)
     db.commit()
+    invalidate_phonebook_cache()
+    warm_phonebook_cache(db)
     return export_configuration(db)

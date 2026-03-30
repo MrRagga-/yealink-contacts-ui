@@ -171,8 +171,8 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.0
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.0
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.1
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.1
 ```
 
 Required GitHub secrets for Docker Hub publishing:
@@ -241,3 +241,4 @@ Recommended next steps after publishing:
 - CORS is restricted through `FRONTEND_ORIGIN`
 - Logs do not contain decrypted credentials
 - Audit logs and job events are exposed through `/api/logs`
+- `PHONEBOOK_BASE_URL` is gone; `XML_PUBLIC_BASE_URL` is optional and falls back to `FRONTEND_ORIGIN`

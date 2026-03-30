@@ -9,6 +9,7 @@ from yealink_contacts.models.contact import Contact, ContactAddress, ContactEmai
 from yealink_contacts.models.job import SyncJob, SyncJobEvent, SyncJobStatus
 from yealink_contacts.models.source import Source, SourceMergeStrategy
 from yealink_contacts.services.audit import write_audit_log
+from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
 from yealink_contacts.services.normalization import normalize_contact_payload
 from yealink_contacts.services.source_service import build_adapter, get_credential_payload
 from yealink_contacts.services.utils import content_hash
@@ -67,6 +68,8 @@ def run_sync(db: Session, source: Source) -> SyncJob:
         write_audit_log(db, "source", source.id, "sync_failed", {"error": str(exc)})
     job.finished_at = datetime.now(UTC)
     db.commit()
+    invalidate_phonebook_cache()
+    warm_phonebook_cache(db)
     db.refresh(job)
     return (
         db.execute(select(SyncJob).where(SyncJob.id == job.id).options(joinedload(SyncJob.events)))

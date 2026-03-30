@@ -12,13 +12,16 @@ from fastapi.testclient import TestClient
 from yealink_contacts.db.base import Base
 from yealink_contacts.db.session import SessionLocal, engine
 from yealink_contacts.main import app
+from yealink_contacts.services.export_service import invalidate_phonebook_cache
 
 
 @pytest.fixture(autouse=True)
 def reset_db():
+    invalidate_phonebook_cache()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
+    invalidate_phonebook_cache()
     Base.metadata.drop_all(bind=engine)
 
 

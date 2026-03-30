@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from hashlib import sha256
+from threading import RLock
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -16,6 +20,16 @@ from yealink_contacts.services.utils import slugify
 from yealink_contacts.core.config import get_settings
 
 settings = get_settings()
+_phonebook_cache_lock = RLock()
+_phonebook_cache: dict[str, "CachedPhonebook"] = {}
+
+
+@dataclass(frozen=True)
+class CachedPhonebook:
+    xml_body: str
+    content_type: str
+    etag: str
+    cache_hit: bool
 
 
 def list_export_profiles(db: Session) -> list[ExportProfile]:
@@ -40,7 +54,10 @@ def create_export_profile(db: Session, payload: ExportProfileCreate) -> ExportPr
     db.add(profile)
     db.commit()
     db.refresh(profile)
-    return get_export_profile(db, profile.id) or profile
+    created = get_export_profile(db, profile.id) or profile
+    invalidate_phonebook_cache()
+    warm_phonebook_cache(db, created.slug)
+    return created
 
 
 def update_export_profile(
@@ -48,6 +65,7 @@ def update_export_profile(
     profile: ExportProfile,
     payload: ExportProfileUpdate,
 ) -> ExportProfile:
+    previous_slug = profile.slug
     if payload.name is not None:
         profile.name = payload.name
     if payload.slug is not None:
@@ -67,7 +85,12 @@ def update_export_profile(
             profile.rule_set.rules_json = payload.rule_set.model_dump(mode="json")
     db.commit()
     db.refresh(profile)
-    return get_export_profile(db, profile.id) or profile
+    updated = get_export_profile(db, profile.id) or profile
+    invalidate_phonebook_cache()
+    if previous_slug != updated.slug:
+        invalidate_phonebook_cache(previous_slug)
+    warm_phonebook_cache(db, updated.slug)
+    return updated
 
 
 def get_export_profile(db: Session, profile_id: str) -> ExportProfile | None:
@@ -101,7 +124,7 @@ def serialize_export_profile(profile: ExportProfile) -> ExportProfileResponse:
             **profile.__dict__,
             "metadata": profile.metadata_json,
             "rule_set": rules,
-            "xml_url": f"{settings.xml_public_base_url}/api/yealink/phonebook/{profile.slug}.xml",
+            "xml_url": f"{resolve_public_xml_base_url()}/api/yealink/phonebook/{profile.slug}.xml",
         }
     )
 
@@ -150,12 +173,16 @@ def generate_preview(db: Session, profile: ExportProfile) -> ExportPreviewRespon
     )
 
 
-def build_phonebook_xml(db: Session, slug: str) -> tuple[str, str]:
+def build_phonebook_xml(db: Session, slug: str) -> CachedPhonebook:
+    cached = get_cached_phonebook(slug)
+    if cached is not None:
+        return cached
+
     profile = get_export_profile_by_slug(db, slug)
     if profile is None:
         raise ValueError("Export profile not found.")
     preview = generate_preview(db, profile)
-    return preview.generated_xml, "application/xml; charset=utf-8"
+    return store_cached_phonebook(slug, preview.generated_xml, "application/xml; charset=utf-8")
 
 
 def ensure_default_profiles(db: Session) -> None:
@@ -176,3 +203,58 @@ def ensure_default_profiles(db: Session) -> None:
 
 def normalize_profile_slug(name: str, slug: str | None) -> str:
     return slug or slugify(name)
+
+
+def resolve_public_xml_base_url() -> str:
+    return (settings.xml_public_base_url or settings.frontend_origin).rstrip("/")
+
+
+def build_phonebook_etag(xml_body: str) -> str:
+    return f'"{sha256(xml_body.encode("utf-8")).hexdigest()}"'
+
+
+def get_cached_phonebook(slug: str) -> CachedPhonebook | None:
+    with _phonebook_cache_lock:
+        cached = _phonebook_cache.get(slug)
+    if cached is None:
+        return None
+    return CachedPhonebook(
+        xml_body=cached.xml_body,
+        content_type=cached.content_type,
+        etag=cached.etag,
+        cache_hit=True,
+    )
+
+
+def store_cached_phonebook(slug: str, xml_body: str, content_type: str) -> CachedPhonebook:
+    cached = CachedPhonebook(
+        xml_body=xml_body,
+        content_type=content_type,
+        etag=build_phonebook_etag(xml_body),
+        cache_hit=False,
+    )
+    with _phonebook_cache_lock:
+        _phonebook_cache[slug] = cached
+    return cached
+
+
+def invalidate_phonebook_cache(slug: str | None = None) -> None:
+    with _phonebook_cache_lock:
+        if slug is None:
+            _phonebook_cache.clear()
+            return
+        _phonebook_cache.pop(slug, None)
+
+
+def warm_phonebook_cache(db: Session, slug: str | None = None) -> None:
+    if slug is not None:
+        try:
+            build_phonebook_xml(db, slug)
+        except ValueError:
+            pass
+        return
+
+    invalidate_phonebook_cache()
+    for profile in list_export_profiles(db):
+        if profile.is_active:
+            build_phonebook_xml(db, profile.slug)

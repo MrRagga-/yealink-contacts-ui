@@ -21,8 +21,7 @@ class Settings(BaseSettings):
     encryption_key: str = Field(alias="ENCRYPTION_KEY")
     default_country_code: str = Field(default="DE", alias="DEFAULT_COUNTRY_CODE")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
-    phonebook_base_url: str = Field(default="http://localhost:8000", alias="PHONEBOOK_BASE_URL")
-    xml_public_base_url: str = Field(default="http://localhost:8000", alias="XML_PUBLIC_BASE_URL")
+    xml_public_base_url: str | None = Field(default=None, alias="XML_PUBLIC_BASE_URL")
     sync_http_timeout: int = Field(default=20, alias="SYNC_HTTP_TIMEOUT")
 
     model_config = SettingsConfigDict(

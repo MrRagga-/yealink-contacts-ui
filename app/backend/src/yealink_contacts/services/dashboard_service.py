@@ -22,8 +22,8 @@ def get_dashboard(db: Session) -> DashboardResponse:
     for profile in list_export_profiles(db):
         xml_endpoints.append(f"/api/yealink/phonebook/{profile.slug}.xml")
         try:
-            xml_body, _ = build_phonebook_xml(db, profile.slug)
-            exported_contacts += xml_body.count("<DirectoryEntry>")
+            phonebook = build_phonebook_xml(db, profile.slug)
+            exported_contacts += phonebook.xml_body.count("<DirectoryEntry>")
         except Exception:
             continue
     recent_errors = [item.last_error for item in db.execute(select(Source).where(Source.last_error.is_not(None))).scalars()]
