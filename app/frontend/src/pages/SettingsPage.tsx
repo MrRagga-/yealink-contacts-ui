@@ -1,14 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { z } from "zod";
 
 import { SectionCard } from "../components/SectionCard";
+import { useAuth } from "../features/auth/AuthProvider";
 import { useToast } from "../hooks/useToast";
 import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import type { AppSettings, SourceMergeStrategy, SourceType } from "../types/api";
+import type { AppSettings, PasskeyCredential, SourceMergeStrategy, SourceType } from "../types/api";
 
 const settingsSchema = z.object({
   default_new_source_type: z.enum(["google", "carddav", "nextcloud_carddav"]),
@@ -20,6 +23,8 @@ const settingsSchema = z.object({
   default_profile_name_expression: z.string().default("{full_name}"),
   default_profile_prefix: z.string().default(""),
   default_profile_suffix: z.string().default(""),
+  admin_allowed_cidrs: z.string().default("0.0.0.0/0\n::/0"),
+  xml_allowed_cidrs: z.string().default("0.0.0.0/0\n::/0"),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -31,6 +36,17 @@ function toCsv(values: string[]) {
 function splitCsv(value: string) {
   return value
     .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function toCidrText(values: string[]) {
+  return values.join("\n");
+}
+
+function splitCidrs(value: string) {
+  return value
+    .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -48,14 +64,60 @@ function toFormValues(settings?: AppSettings): SettingsFormValues {
     default_profile_name_expression: settings?.default_profile_name_expression ?? "{full_name}",
     default_profile_prefix: settings?.default_profile_prefix ?? "",
     default_profile_suffix: settings?.default_profile_suffix ?? "",
+    admin_allowed_cidrs: toCidrText(settings?.admin_allowed_cidrs ?? ["0.0.0.0/0", "::/0"]),
+    xml_allowed_cidrs: toCidrText(settings?.xml_allowed_cidrs ?? ["0.0.0.0/0", "::/0"]),
   };
+}
+
+function PasskeyList({ passkeys, onDelete }: { passkeys: PasskeyCredential[]; onDelete: (id: string) => void }) {
+  if (!passkeys.length) {
+    return <div className="info-box">No passkeys registered yet.</div>;
+  }
+
+  return (
+    <div className="stack">
+      {passkeys.map((passkey) => (
+        <article key={passkey.id} className="list-card compact-card">
+          <div className="list-card-header">
+            <div>
+              <strong>{passkey.label}</strong>
+              <p className="subtle">
+                Added {new Date(passkey.created_at).toLocaleString()}
+                {passkey.last_used_at ? ` • Last used ${new Date(passkey.last_used_at).toLocaleString()}` : ""}
+              </p>
+            </div>
+            <button type="button" className="danger-button" onClick={() => onDelete(passkey.id)}>
+              Remove
+            </button>
+          </div>
+          <div className="chip-row">
+            {passkey.transports.length ? (
+              passkey.transports.map((transport) => (
+                <span key={transport} className="chip">
+                  {transport}
+                </span>
+              ))
+            ) : (
+              <span className="chip">transport not reported</span>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 export function SettingsPage() {
   const { t } = useI18n();
+  const { user, refresh } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: settings } = useQuery({ queryKey: ["app-settings"], queryFn: api.getAppSettings });
+  const { data: passkeys = [] } = useQuery({
+    queryKey: ["auth", "passkeys"],
+    queryFn: api.listPasskeys,
+  });
+  const [passkeyLabel, setPasskeyLabel] = useState("This device");
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: toFormValues(),
@@ -70,6 +132,33 @@ export function SettingsPage() {
     onSuccess: async () => {
       toast.push("success", "Settings saved.");
       await queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+    },
+    onError: (error: Error) => toast.push("error", error.message),
+  });
+
+  const registerPasskeyMutation = useMutation({
+    mutationFn: async () => {
+      const { options } = await api.getPasskeyRegistrationOptions({ label: passkeyLabel });
+      const credential = await startRegistration({
+        optionsJSON: options,
+      });
+      return api.verifyPasskeyRegistration({ credential });
+    },
+    onSuccess: async () => {
+      toast.push("success", "Passkey added.");
+      setPasskeyLabel("This device");
+      await queryClient.invalidateQueries({ queryKey: ["auth", "passkeys"] });
+      await refresh();
+    },
+    onError: (error: Error) => toast.push("error", error.message),
+  });
+
+  const deletePasskeyMutation = useMutation({
+    mutationFn: api.deletePasskey,
+    onSuccess: async () => {
+      toast.push("success", "Passkey removed.");
+      await queryClient.invalidateQueries({ queryKey: ["auth", "passkeys"] });
+      await refresh();
     },
     onError: (error: Error) => toast.push("error", error.message),
   });
@@ -96,6 +185,8 @@ export function SettingsPage() {
               default_profile_name_expression: values.default_profile_name_expression,
               default_profile_prefix: values.default_profile_prefix,
               default_profile_suffix: values.default_profile_suffix,
+              admin_allowed_cidrs: splitCidrs(values.admin_allowed_cidrs),
+              xml_allowed_cidrs: splitCidrs(values.xml_allowed_cidrs),
             })
           )}
         >
@@ -153,10 +244,43 @@ export function SettingsPage() {
             <span className="field-help">Added after every exported name in new profiles.</span>
             <input {...form.register("default_profile_suffix")} placeholder=" (HQ)" />
           </label>
+          <label className="full-span">
+            <span>Admin allowed CIDRs</span>
+            <span className="field-help">Only these IP ranges can reach the admin SPA and admin APIs. One CIDR per line.</span>
+            <textarea rows={4} {...form.register("admin_allowed_cidrs")} />
+          </label>
+          <label className="full-span">
+            <span>Yealink XML allowed CIDRs</span>
+            <span className="field-help">Only these IP ranges can fetch the public phonebook XML endpoint. One CIDR per line.</span>
+            <textarea rows={4} {...form.register("xml_allowed_cidrs")} />
+          </label>
           <button type="submit" className="primary-button">
             Save settings
           </button>
         </form>
+      </SectionCard>
+      <SectionCard title="Security">
+        <div className="stack">
+          <div className="info-box">
+            Signed in as <strong>{user?.username}</strong>. Passkeys can be added after the bootstrap password has been replaced.
+          </div>
+          <label className="stack-label">
+            <span>New passkey label</span>
+            <span className="field-help">This label appears only in this admin UI and helps identify each registered device.</span>
+            <input value={passkeyLabel} onChange={(event) => setPasskeyLabel(event.target.value)} placeholder="Office MacBook" />
+          </label>
+          <div className="button-row">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => registerPasskeyMutation.mutate()}
+              disabled={registerPasskeyMutation.isPending}
+            >
+              {registerPasskeyMutation.isPending ? "Waiting for passkey..." : "Add passkey"}
+            </button>
+          </div>
+          <PasskeyList passkeys={passkeys} onDelete={(id) => deletePasskeyMutation.mutate(id)} />
+        </div>
       </SectionCard>
     </div>
   );

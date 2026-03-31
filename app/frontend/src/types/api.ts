@@ -1,6 +1,23 @@
 export type SourceType = "google" | "carddav" | "nextcloud_carddav";
 export type SourceMergeStrategy = "upsert_only" | "mirror_source";
 
+export type AuthenticatedAdmin = {
+  id: string;
+  username: string;
+  must_change_password: boolean;
+  is_active: boolean;
+  passkey_count: number;
+};
+
+export type PasskeyCredential = {
+  id: string;
+  label: string;
+  transports: string[];
+  created_at: string;
+  updated_at: string;
+  last_used_at?: string | null;
+};
+
 export type AppSettings = {
   app_version: string;
   release_model: string;
@@ -13,6 +30,8 @@ export type AppSettings = {
   default_profile_name_expression: string;
   default_profile_prefix: string;
   default_profile_suffix: string;
+  admin_allowed_cidrs: string[];
+  xml_allowed_cidrs: string[];
 };
 
 export type SourceAddressbook = {

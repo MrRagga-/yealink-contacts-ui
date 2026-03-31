@@ -1,9 +1,23 @@
+import { useMutation } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { useAuth } from "../features/auth/AuthProvider";
+import { useToast } from "../hooks/useToast";
+import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
 export function Layout() {
+  const { user, clearAuth, refresh } = useAuth();
+  const toast = useToast();
   const { locale, setLocale, t } = useI18n();
+  const logoutMutation = useMutation({
+    mutationFn: api.logout,
+    onSuccess: async () => {
+      clearAuth();
+      await refresh();
+    },
+    onError: (error: Error) => toast.push("error", error.message),
+  });
   const navItems = [
     { to: "/", label: t("dashboard"), end: true },
     { to: "/sources", label: t("sources") },
@@ -35,6 +49,13 @@ export function Layout() {
           ))}
         </nav>
         <div className="sidebar-footer">
+          <div className="auth-sidebar-card">
+            <strong>{user?.username}</strong>
+            <p>Admin session</p>
+            <button type="button" className="ghost-button" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
+              {logoutMutation.isPending ? "Signing out..." : "Sign out"}
+            </button>
+          </div>
           <label className="language-switcher">
             <span>{t("language")}</span>
             <select value={locale} onChange={(event) => setLocale(event.target.value as "en" | "de")}>

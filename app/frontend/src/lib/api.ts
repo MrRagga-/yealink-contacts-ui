@@ -1,10 +1,18 @@
 import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/browser";
+import type {
+  AuthenticatedAdmin,
   Contact,
   ContactListResponse,
   DashboardResponse,
   ExportPreviewResponse,
   ExportProfile,
   LogsResponse,
+  PasskeyCredential,
   AppSettings,
   Source,
   SourceAddressbook,
@@ -13,9 +21,23 @@ import type {
 } from "../types/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+export const AUTH_UNAUTHORIZED_EVENT = "yealink-auth-unauthorized";
+
+export class ApiError extends Error {
+  status: number;
+  payload: string;
+
+  constructor(status: number, payload: string) {
+    super(payload || `HTTP ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
@@ -25,7 +47,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(payload || `HTTP ${response.status}`);
+    let message = payload || `HTTP ${response.status}`;
+    try {
+      const jsonPayload = JSON.parse(payload) as { detail?: string };
+      if (jsonPayload.detail) {
+        message = jsonPayload.detail;
+      }
+    } catch {}
+    if (response.status === 401 && path !== "/api/auth/me" && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+    }
+    throw new ApiError(response.status, message);
   }
 
   if (response.status === 204) {
@@ -36,6 +68,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getCurrentAdmin: () => request<AuthenticatedAdmin>("/api/auth/me"),
+  login: (payload: { username: string; password: string }) =>
+    request<AuthenticatedAdmin>("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  logout: () => request<{ message: string }>("/api/auth/logout", { method: "POST" }),
+  changePassword: (payload: { current_password: string; new_password: string }) =>
+    request<AuthenticatedAdmin>("/api/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
+  listPasskeys: () => request<PasskeyCredential[]>("/api/auth/passkeys"),
+  getPasskeyRegistrationOptions: (payload: { label: string }) =>
+    request<{ options: PublicKeyCredentialCreationOptionsJSON }>("/api/auth/passkeys/registration/options", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  verifyPasskeyRegistration: (payload: { credential: RegistrationResponseJSON }) =>
+    request<PasskeyCredential>("/api/auth/passkeys/registration/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getPasskeyAuthenticationOptions: () =>
+    request<{ options: PublicKeyCredentialRequestOptionsJSON }>("/api/auth/passkeys/authentication/options", {
+      method: "POST",
+    }),
+  verifyPasskeyAuthentication: (payload: { credential: AuthenticationResponseJSON }) =>
+    request<AuthenticatedAdmin>("/api/auth/passkeys/authentication/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deletePasskey: (id: string) => request<{ message: string }>(`/api/auth/passkeys/${id}`, { method: "DELETE" }),
   getDashboard: () => request<DashboardResponse>("/api/dashboard"),
   getSources: () => request<Source[]>("/api/sources"),
   createSource: (payload: SourceCreatePayload) =>

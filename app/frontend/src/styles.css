@@ -109,6 +109,22 @@ select {
   padding-top: 18px;
 }
 
+.auth-sidebar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid rgba(140, 122, 90, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.auth-sidebar-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .language-switcher {
   display: flex;
   flex-direction: column;
@@ -248,6 +264,7 @@ select {
 .form-grid input,
 .form-grid textarea,
 .form-grid select,
+.auth-form input,
 .search-field input,
 .page-header select {
   border: 1px solid var(--border);
@@ -273,6 +290,43 @@ select {
   border-radius: 16px;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 460px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(140, 122, 90, 0.16);
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
 }
 
 .instruction-panel {
@@ -371,6 +425,13 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.stack-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
 }
 
 .list-card {
