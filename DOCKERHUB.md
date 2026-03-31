@@ -54,6 +54,33 @@ cp .env.example .env
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+## Persistent Data
+
+The images are stateless. Persistent application data is stored in PostgreSQL, and the repository Compose files already keep it in the named Docker volume `postgres-data`.
+
+Update flow that keeps your data:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Avoid deleting the volume unless you intentionally want a clean reset:
+
+- Safe: `docker compose down`
+- Destructive: `docker compose down -v`
+
+If you want the database on a specific host path instead of a named Docker volume, mount it like this in the `db` service:
+
+```yaml
+services:
+  db:
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+```
+
+Keep that host directory across updates and backups if you want to preserve all contacts, rules, credentials, and sync state.
+
 ## Project Source
 
 - GitHub: [MrRagga-/yealink-contacts-ui](https://github.com/MrRagga-/yealink-contacts-ui)

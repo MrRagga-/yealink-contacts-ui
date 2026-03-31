@@ -104,6 +104,34 @@ The default Compose file uses the published Docker Hub images, serves the fronte
 
 The dev Compose file builds the backend and frontend images from the local checkout before starting the stack.
 
+## Persistent data
+
+The backend and frontend containers are disposable. Your actual application data lives in PostgreSQL, and the default Compose files already persist it in the named Docker volume `postgres-data`.
+
+That means:
+
+- `docker compose up`
+- `docker compose pull`
+- `docker compose up -d`
+
+can update containers without losing your contacts, sources, rules, or stored credentials, as long as you keep the database volume.
+
+Do not remove the volume if you want to keep your data:
+
+- Safe: `docker compose down`
+- Destructive: `docker compose down -v`
+
+If you prefer a host-mounted directory instead of a named Docker volume, change the `db` service volume to something like:
+
+```yaml
+services:
+  db:
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+```
+
+Then keep `./data/postgres` around across updates and backups.
+
 ### Option 3: Local uv and npm
 
 1. `cp .env.example .env`
@@ -114,6 +142,30 @@ The dev Compose file builds the backend and frontend images from the local check
 6. Frontend: `make frontend-dev`
 
 The backend dependency graph is locked in `app/backend/uv.lock`, local commands are executed through `uv run`, and Python typing is enforced with `ty`.
+
+## Secret generation
+
+Set these before exposing the app anywhere outside a throwaway local test environment:
+
+- `APP_SECRET_KEY`: any long random secret string used by the backend configuration.
+- `ENCRYPTION_KEY`: a valid Fernet key used to encrypt stored source credentials.
+
+Generate them with:
+
+```bash
+openssl rand -hex 32
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Example workflow:
+
+```bash
+cp .env.example .env
+APP_SECRET_KEY="$(openssl rand -hex 32)"
+ENCRYPTION_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+```
+
+Then write those values into `.env`. Keep the `ENCRYPTION_KEY` stable for an existing deployment, otherwise previously stored credentials can no longer be decrypted.
 
 ## Demo data
 
