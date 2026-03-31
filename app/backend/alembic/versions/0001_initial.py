@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision = "0001_initial"
 down_revision = None
@@ -17,8 +18,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    source_type = sa.Enum("google", "carddav", "nextcloud_carddav", name="sourcetype")
-    sync_status = sa.Enum("pending", "running", "success", "failed", name="syncjobstatus")
+    source_type = postgresql.ENUM(
+        "google",
+        "carddav",
+        "nextcloud_carddav",
+        name="sourcetype",
+        create_type=False,
+    )
+    sync_status = postgresql.ENUM(
+        "pending",
+        "running",
+        "success",
+        "failed",
+        name="syncjobstatus",
+        create_type=False,
+    )
     bind = op.get_bind()
     source_type.create(bind, checkfirst=True)
     sync_status.create(bind, checkfirst=True)

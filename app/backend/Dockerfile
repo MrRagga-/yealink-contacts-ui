@@ -1,10 +1,12 @@
-FROM python:3.14-slim
+FROM python:3.12-slim
 
-ARG APP_VERSION=0.1.1
+ARG APP_VERSION=0.1.2
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PATH="/srv/app/.venv/bin:$PATH"
 
 WORKDIR /srv/app
 
@@ -20,7 +22,7 @@ COPY app/backend/src /srv/app/src
 COPY app/backend/alembic.ini /srv/app/alembic.ini
 COPY app/backend/alembic /srv/app/alembic
 
-RUN uv sync --locked --no-dev --no-editable
+RUN uv sync --locked --no-dev --no-editable && chown -R app:app /srv/app
 
 LABEL org.opencontainers.image.title="Yealink Contacts Sync Backend" \
       org.opencontainers.image.version=$APP_VERSION \
@@ -29,4 +31,4 @@ LABEL org.opencontainers.image.title="Yealink Contacts Sync Backend" \
 USER app
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "yealink_contacts.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "yealink_contacts.main:app", "--host", "0.0.0.0", "--port", "8000"]
