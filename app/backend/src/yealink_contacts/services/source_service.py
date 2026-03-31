@@ -25,6 +25,8 @@ from yealink_contacts.services.audit import write_audit_log
 from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
 from yealink_contacts.services.utils import slugify
 
+DEFAULT_GOOGLE_REDIRECT_URI = "http://localhost:8000/api/sources/oauth/google/callback"
+
 
 def list_sources(db: Session) -> list[Source]:
     return list(
@@ -139,6 +141,10 @@ def summarize_source(source: Source) -> SourceResponse:
     )
 
 
+def resolve_google_redirect_uri(payload: SourceCredentialPayload) -> str:
+    return payload.google_redirect_uri or DEFAULT_GOOGLE_REDIRECT_URI
+
+
 def build_adapter(source: Source) -> SourceAdapter:
     credential = get_credential_payload(source)
     if source.type in {SourceType.carddav, SourceType.nextcloud_carddav}:
@@ -178,7 +184,7 @@ def start_google_oauth(db: Session, source: Source) -> GoogleAuthStartResponse:
     credential = get_credential_payload(source)
     if not credential.google_client_id or not credential.google_client_secret:
         raise ValueError("Google client ID and client secret are missing on this source.")
-    redirect_uri = credential.google_redirect_uri or "http://localhost:8000/api/sources/oauth/google/callback"
+    redirect_uri = resolve_google_redirect_uri(credential)
     auth_uri = credential.google_auth_uri or "https://accounts.google.com/o/oauth2/auth"
     token_uri = credential.token_uri or "https://oauth2.googleapis.com/token"
     with _oauth_transport_context(redirect_uri):
@@ -211,7 +217,7 @@ def complete_google_oauth(db: Session, source: Source, callback_url: str) -> Sou
     payload = get_credential_payload(source)
     if not payload.google_client_id or not payload.google_client_secret:
         raise ValueError("Google client ID and client secret are missing on this source.")
-    redirect_uri = payload.google_redirect_uri or "http://localhost:8000/api/sources/oauth/google/callback"
+    redirect_uri = resolve_google_redirect_uri(payload)
     auth_uri = payload.google_auth_uri or "https://accounts.google.com/o/oauth2/auth"
     token_uri = payload.token_uri or "https://oauth2.googleapis.com/token"
     with _oauth_transport_context(redirect_uri):

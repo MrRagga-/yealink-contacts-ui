@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
@@ -7,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from yealink_contacts.adapters.base import AddressbookInfo
 from yealink_contacts.api.deps import db_session, get_source_or_404
+from yealink_contacts.core.config import get_settings
 from yealink_contacts.schemas.source import (
     SourceAddressbookBase,
     SourceCreate,
@@ -19,7 +22,9 @@ from yealink_contacts.services.source_service import (
     complete_google_oauth,
     create_source,
     delete_source,
+    get_credential_payload,
     list_sources,
+    resolve_google_redirect_uri,
     start_google_oauth,
     summarize_source,
     update_source,
@@ -40,6 +45,23 @@ def _source_conflict_detail(exc: IntegrityError) -> str:
 
 def _serialize_addressbooks(books: list[AddressbookInfo]) -> list[SourceAddressbookBase]:
     return [SourceAddressbookBase.model_validate(book.model_dump()) for book in books]
+
+
+def _build_google_callback_url(source, request: Request) -> str:
+    redirect_uri = resolve_google_redirect_uri(get_credential_payload(source))
+    parsed_redirect_uri = urlsplit(redirect_uri)
+    combined_query = parse_qsl(parsed_redirect_uri.query, keep_blank_values=True) + list(
+        request.query_params.multi_items()
+    )
+    return urlunsplit(
+        (
+            parsed_redirect_uri.scheme,
+            parsed_redirect_uri.netloc,
+            parsed_redirect_uri.path,
+            urlencode(combined_query, doseq=True),
+            "",
+        )
+    )
 
 
 @router.get("", response_model=list[SourceResponse])
@@ -124,5 +146,6 @@ def google_oauth_callback(
     db: Session = Depends(db_session),
 ):
     source = get_source_or_404(state, db)
-    complete_google_oauth(db, source, str(request.url))
-    return RedirectResponse(url=f"http://localhost:5173/sources?google=connected&sourceId={source.id}")
+    complete_google_oauth(db, source, _build_google_callback_url(source, request))
+    frontend_origin = get_settings().frontend_origin.rstrip("/")
+    return RedirectResponse(url=f"{frontend_origin}/sources?google=connected&sourceId={source.id}")
