@@ -76,6 +76,7 @@ The GitHub release workflow is configured to:
 │       ├── src/tests
 │       └── src/types
 ├── .github
+├── docker-compose.dev.yml
 ├── docker-compose.yml
 ├── Makefile
 └── README.md
@@ -83,17 +84,27 @@ The GitHub release workflow is configured to:
 
 ## Local development
 
-### Option 1: Docker Compose
+### Option 1: Docker Compose with published images
 
 1. Copy `.env.example` to `.env`
 2. Review `APP_SECRET_KEY` and `ENCRYPTION_KEY`
-3. Run `docker compose up --build`
+3. Run `docker compose up`
 4. Frontend: [http://localhost:5173](http://localhost:5173)
 5. Backend/OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-The Docker Compose setup now serves the frontend through Nginx on port `5173` and proxies `/api` and `/healthz` to the backend.
+The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
 
-### Option 2: Local uv and npm
+### Option 2: Docker Compose with local image builds
+
+1. Copy `.env.example` to `.env`
+2. Review `APP_SECRET_KEY` and `ENCRYPTION_KEY`
+3. Run `docker compose -f docker-compose.dev.yml up --build`
+4. Frontend: [http://localhost:5173](http://localhost:5173)
+5. Backend/OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+The dev Compose file builds the backend and frontend images from the local checkout before starting the stack.
+
+### Option 3: Local uv and npm
 
 1. `cp .env.example .env`
 2. Install `uv`
@@ -171,9 +182,14 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.1
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.1
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.2
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.2
 ```
+
+Compose files:
+
+- `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default
+- `docker-compose.dev.yml` builds the images locally from this repository
 
 Required GitHub secrets for Docker Hub publishing:
 

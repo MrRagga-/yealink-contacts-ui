@@ -18,7 +18,7 @@ frontend-dev:
 	cd app/frontend && $(NPM) run dev -- --host 0.0.0.0 --port 5173
 
 dev:
-	docker compose up --build
+	docker compose -f docker-compose.dev.yml up --build
 
 backend-test:
 	cd app/backend && DATABASE_URL=sqlite:///./test_yealink_contacts.db uv run pytest

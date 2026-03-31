@@ -38,13 +38,20 @@ Typical endpoints in a deployment:
 - Backend API: `http://<host>:8000/docs`
 - Yealink XML: `http://<host>:8000/api/yealink/phonebook/<profile>.xml`
 
-## Recommended Local Start
+## Compose Files
 
-Use the repository `docker-compose.yml` for the intended stack:
+Use the repository `docker-compose.yml` to run the published Docker Hub images:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up
+```
+
+Use `docker-compose.dev.yml` when you want to build the backend and frontend images from the local checkout instead:
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 ## Project Source
