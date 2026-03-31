@@ -5,7 +5,16 @@
 1. Copy `.env.example` to `.env`.
 2. Install backend dependencies in `app/backend`.
 3. Install frontend dependencies in `app/frontend`.
-4. Run tests before opening a pull request.
+4. Install the git hooks with `make hooks-install`.
+5. Run tests before opening a pull request.
+
+The repository uses `prek` with a `pre-push` hook. Every push runs a Docker smoke check that:
+
+- builds the backend and frontend images
+- starts the stack with temporary local images
+- waits for backend and frontend health checks to succeed
+
+If the Docker stack does not build or start cleanly, the push is rejected.
 
 ## Pull requests
 

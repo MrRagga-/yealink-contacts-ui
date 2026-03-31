@@ -1,7 +1,7 @@
 PYTHON ?= python3
 NPM ?= npm
 
-.PHONY: backend-install frontend-install install backend-dev frontend-dev dev backend-test backend-typecheck frontend-test test
+.PHONY: backend-install frontend-install install backend-dev frontend-dev dev backend-test backend-typecheck frontend-test test hooks-install docker-smoke
 
 backend-install:
 	cd app/backend && uv sync --locked --extra dev
@@ -19,6 +19,12 @@ frontend-dev:
 
 dev:
 	docker compose -f docker-compose.dev.yml up --build
+
+hooks-install:
+	prek install --hook-type pre-push --install-hooks --overwrite
+
+docker-smoke:
+	./scripts/verify-docker-stack.sh
 
 backend-test:
 	cd app/backend && DATABASE_URL=sqlite:///./test_yealink_contacts.db uv run pytest

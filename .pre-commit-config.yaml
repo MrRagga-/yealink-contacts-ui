@@ -1,0 +1,16 @@
+default_install_hook_types:
+  - pre-push
+
+fail_fast: true
+
+repos:
+  - repo: local
+    hooks:
+      - id: docker-stack-smoke
+        name: Verify Docker images build and stack starts
+        entry: scripts/verify-docker-stack.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages:
+          - pre-push
