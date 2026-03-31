@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from yealink_contacts.adapters.base import AddressbookInfo
@@ -28,6 +29,15 @@ from yealink_contacts.services.sync_service import run_sync
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
+def _source_conflict_detail(exc: IntegrityError) -> str:
+    message = str(exc.orig).lower()
+    if "sources.slug" in message or "sources_slug_key" in message:
+        return "A source with this slug already exists."
+    if "sources.name" in message or "sources_name_key" in message:
+        return "A source with this name already exists."
+    return "A source with this name or slug already exists."
+
+
 def _serialize_addressbooks(books: list[AddressbookInfo]) -> list[SourceAddressbookBase]:
     return [SourceAddressbookBase.model_validate(book.model_dump()) for book in books]
 
@@ -39,7 +49,11 @@ def sources(db: Session = Depends(db_session)) -> list[SourceResponse]:
 
 @router.post("", response_model=SourceResponse)
 def create(payload: SourceCreate, db: Session = Depends(db_session)) -> SourceResponse:
-    source = create_source(db, payload)
+    try:
+        source = create_source(db, payload)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=_source_conflict_detail(exc)) from exc
     return summarize_source(source)
 
 
@@ -49,7 +63,11 @@ def update(
     source=Depends(get_source_or_404),
     db: Session = Depends(db_session),
 ) -> SourceResponse:
-    updated = update_source(db, source, payload)
+    try:
+        updated = update_source(db, source, payload)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=_source_conflict_detail(exc)) from exc
     return summarize_source(updated)
 
 

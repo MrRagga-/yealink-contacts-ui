@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG APP_VERSION=0.1.2
+ARG APP_VERSION=0.2.0
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
@@ -31,4 +31,4 @@ LABEL org.opencontainers.image.title="Yealink Contacts Sync Backend" \
 USER app
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "yealink_contacts.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/sh", "-c", "alembic upgrade head && exec python -m uvicorn yealink_contacts.main:app --host 0.0.0.0 --port 8000"]

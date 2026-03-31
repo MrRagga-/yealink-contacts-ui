@@ -93,6 +93,8 @@ The GitHub release workflow is configured to:
 5. Backend/OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
+If you plan to enforce admin or XML CIDR allowlists behind a reverse proxy, also set `TRUSTED_PROXY_CIDRS` so the backend trusts the proxy hop and evaluates the real client IP from `X-Forwarded-For`.
+The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests.
 
 ### Option 2: Docker Compose with local image builds
 
@@ -167,6 +169,35 @@ ENCRYPTION_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fern
 
 Then write those values into `.env`. Keep the `ENCRYPTION_KEY` stable for an existing deployment, otherwise previously stored credentials can no longer be decrypted.
 
+### Admin auth and passkeys
+
+The admin UI is now protected by:
+
+- a local admin username/password login
+- optional passkeys that can be added after the first password change
+- CIDR allowlists for the admin UI/API and the Yealink XML endpoint
+
+Bootstrap behavior:
+
+1. The first startup creates a single admin account: `admin` / `admin`
+2. The first successful login forces an immediate password change
+3. After that, passkeys can be added in `Settings > Security`
+
+Important runtime settings:
+
+- `TRUSTED_PROXY_CIDRS`: comma-separated proxy CIDRs that are allowed to supply `X-Forwarded-For`
+- `SESSION_COOKIE_NAME`: optional override for the signed admin session cookie name
+- `SESSION_MAX_AGE_SECONDS`: optional override for session lifetime
+- `WEBAUTHN_RP_ID`: optional WebAuthn relying-party ID
+- `WEBAUTHN_RP_NAME`: optional WebAuthn relying-party display name
+- `WEBAUTHN_RP_ORIGIN`: optional WebAuthn relying-party origin
+
+Defaults:
+
+- `WEBAUTHN_RP_ORIGIN` falls back to `FRONTEND_ORIGIN`
+- `WEBAUTHN_RP_NAME` falls back to `APP_NAME`
+- `WEBAUTHN_RP_ID` falls back to the hostname part of `FRONTEND_ORIGIN`
+
 ## Demo data
 
 Create demo data:
@@ -218,9 +249,10 @@ Contact updates already happen during sync through upsert behavior keyed by `sou
 2. Validate the result in `Export / Yealink`
 3. Copy the XML endpoint, for example:
    - `http://<tool-host>:8000/api/yealink/phonebook/default.xml`
-4. In Yealink, configure the remote phonebook under:
+4. If XML CIDR allowlists are enabled, make sure the phones or provisioning network are inside the allowed ranges
+5. In Yealink, configure the remote phonebook under:
    - `Directory > Remote Phonebook`
-5. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
+6. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
 
 ## Container publishing
 
@@ -234,8 +266,8 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.1.2
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.1.2
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.2.0
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.2.0
 ```
 
 Compose files:
