@@ -22,7 +22,7 @@ export function AboutPage() {
           <p className="subtle">{t("aboutSummary")}</p>
           <div className="list-card compact-card">
             <strong>{t("version")}</strong>
-            <p className="subtle">{settings?.app_version ?? "0.2.0"}</p>
+            <p className="subtle">{settings?.app_version ?? "0.2.1"}</p>
           </div>
           <div className="list-card compact-card">
             <strong>{t("releaseModel")}</strong>

@@ -1,6 +1,6 @@
 FROM node:25-alpine AS build
 
-ARG APP_VERSION=0.2.0
+ARG APP_VERSION=0.2.1
 WORKDIR /srv/app
 
 COPY app/frontend/package.json app/frontend/package-lock.json ./
@@ -11,7 +11,7 @@ RUN npm run build
 
 FROM nginx:1.29-alpine
 
-ARG APP_VERSION=0.2.0
+ARG APP_VERSION=0.2.1
 
 LABEL org.opencontainers.image.title="Yealink Contacts Sync Frontend" \
       org.opencontainers.image.version=$APP_VERSION \

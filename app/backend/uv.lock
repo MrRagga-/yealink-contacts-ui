@@ -1592,7 +1592,7 @@ wheels = [
 
 [[package]]
 name = "yealink-contacts-backend"
-version = "0.1.2"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
