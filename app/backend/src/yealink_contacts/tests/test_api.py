@@ -5,7 +5,7 @@ from yealink_contacts.models.source import Source, SourceType
 from yealink_contacts.services.export_service import list_export_profiles
 
 
-def test_preview_and_xml_endpoints(client, db):
+def test_preview_and_xml_endpoints(admin_client, db):
     source = Source(
         name="Demo",
         slug="demo",
@@ -39,8 +39,8 @@ def test_preview_and_xml_endpoints(client, db):
     db.commit()
     profile = list_export_profiles(db)[0]
 
-    preview = client.get(f"/api/exports/preview?profile_id={profile.id}")
-    xml = client.get("/api/yealink/phonebook/default.xml")
+    preview = admin_client.get(f"/api/exports/preview?profile_id={profile.id}")
+    xml = admin_client.get("/api/yealink/phonebook/default.xml")
 
     assert preview.status_code == 200
     assert preview.json()["exported"][0]["display_name"] == "Grace Hopper"
@@ -48,18 +48,18 @@ def test_preview_and_xml_endpoints(client, db):
     assert "Grace Hopper" in xml.text
     assert xml.headers["x-cache"] == "MISS"
 
-    cached = client.get("/api/yealink/phonebook/default.xml")
+    cached = admin_client.get("/api/yealink/phonebook/default.xml")
     assert cached.status_code == 200
     assert cached.headers["x-cache"] == "HIT"
 
-    not_modified = client.get(
+    not_modified = admin_client.get(
         "/api/yealink/phonebook/default.xml",
         headers={"If-None-Match": cached.headers["etag"]},
     )
     assert not_modified.status_code == 304
 
 
-def test_xml_cache_is_invalidated_when_contact_is_deleted(client, db):
+def test_xml_cache_is_invalidated_when_contact_is_deleted(admin_client, db):
     source = Source(
         name="Demo",
         slug="demo",
@@ -91,14 +91,14 @@ def test_xml_cache_is_invalidated_when_contact_is_deleted(client, db):
     db.add(contact)
     db.commit()
 
-    first = client.get("/api/yealink/phonebook/default.xml")
+    first = admin_client.get("/api/yealink/phonebook/default.xml")
     assert first.status_code == 200
     assert "Ada Lovelace" in first.text
 
-    deleted = client.delete(f"/api/contacts/{contact.id}")
+    deleted = admin_client.delete(f"/api/contacts/{contact.id}")
     assert deleted.status_code == 200
 
-    second = client.get("/api/yealink/phonebook/default.xml")
+    second = admin_client.get("/api/yealink/phonebook/default.xml")
     assert second.status_code == 200
     assert "Ada Lovelace" not in second.text
     assert second.headers["x-cache"] == "HIT"

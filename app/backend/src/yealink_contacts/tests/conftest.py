@@ -35,3 +35,15 @@ def db():
 def client():
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def admin_client(client: TestClient) -> TestClient:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
+    assert login.status_code == 200
+    changed = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "admin", "new_password": "admin-password"},
+    )
+    assert changed.status_code == 200
+    return client

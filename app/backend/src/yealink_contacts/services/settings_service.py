@@ -5,10 +5,11 @@ from sqlalchemy.orm import Session
 
 from yealink_contacts.core.version import get_app_version
 from yealink_contacts.models.app_setting import AppSetting
-from yealink_contacts.schemas.settings import AppSettingsResponse, AppSettingsUpdate
+from yealink_contacts.schemas.settings import AppSettingsBase, AppSettingsResponse, AppSettingsUpdate
 from yealink_contacts.services.audit import write_audit_log
 
 SETTINGS_ENTITY_ID = "global"
+PERSISTED_SETTING_KEYS = set(AppSettingsBase.model_fields)
 
 
 def get_app_settings(db: Session) -> AppSettingsResponse:
@@ -27,6 +28,8 @@ def update_app_settings(db: Session, payload: AppSettingsUpdate) -> AppSettingsR
     updated = current.model_copy(update=payload.model_dump(exclude_none=True))
 
     for key, value in updated.model_dump().items():
+        if key not in PERSISTED_SETTING_KEYS:
+            continue
         item = db.execute(select(AppSetting).where(AppSetting.key == key)).scalar_one_or_none()
         if item is None:
             db.add(AppSetting(key=key, value=value))

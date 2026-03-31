@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from yealink_contacts.models.source import SourceMergeStrategy, SourceType
+from yealink_contacts.services.network_security import ALLOW_ALL_CIDRS, normalize_cidrs
+
+
+def _normalize_optional_cidrs(value: list[str] | None) -> list[str] | None:
+    if value is None:
+        return None
+    return normalize_cidrs(value)
 
 
 class AppSettingsBase(BaseModel):
@@ -17,10 +24,17 @@ class AppSettingsBase(BaseModel):
     default_profile_name_expression: str = "{full_name}"
     default_profile_prefix: str = ""
     default_profile_suffix: str = ""
+    admin_allowed_cidrs: list[str] = Field(default_factory=lambda: ALLOW_ALL_CIDRS.copy())
+    xml_allowed_cidrs: list[str] = Field(default_factory=lambda: ALLOW_ALL_CIDRS.copy())
+
+    @field_validator("admin_allowed_cidrs", "xml_allowed_cidrs", mode="before")
+    @classmethod
+    def normalize_cidr_fields(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_optional_cidrs(value)
 
 
 class AppSettingsResponse(AppSettingsBase):
-    app_version: str = "0.1.2"
+    app_version: str = "0.2.0"
     release_model: str = "Semantic Versioning via Git tags"
 
 
@@ -34,3 +48,10 @@ class AppSettingsUpdate(BaseModel):
     default_profile_name_expression: str | None = None
     default_profile_prefix: str | None = None
     default_profile_suffix: str | None = None
+    admin_allowed_cidrs: list[str] | None = None
+    xml_allowed_cidrs: list[str] | None = None
+
+    @field_validator("admin_allowed_cidrs", "xml_allowed_cidrs", mode="before")
+    @classmethod
+    def normalize_cidr_fields(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_optional_cidrs(value)
