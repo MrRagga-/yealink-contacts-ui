@@ -26,3 +26,4 @@ app/frontend/dist/
 *.tsbuildinfo
 app/backend/alembic/versions/__pycache__/
 *.db
+.omx/
