@@ -5,7 +5,7 @@ import { SectionCard } from "../components/SectionCard";
 import { ExportProfileForm } from "../features/exportProfiles/ExportProfileForm";
 import { useToast } from "../hooks/useToast";
 import { api } from "../lib/api";
-import type { ExportProfile } from "../types/api";
+import type { ExportProfile, ExportProfilePayload } from "../types/api";
 
 export function RulesPage() {
   const toast = useToast();
@@ -26,7 +26,7 @@ export function RulesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: ExportProfilePayload }) =>
       api.updateProfile(id, payload),
     onSuccess: (profile) => {
       toast.push("success", "Export profile updated.");
@@ -54,7 +54,7 @@ export function RulesPage() {
               if (editing) {
                 updateMutation.mutate({ id: editing.id, payload });
               } else {
-                createMutation.mutate(payload as never);
+                createMutation.mutate(payload);
               }
             }}
           />

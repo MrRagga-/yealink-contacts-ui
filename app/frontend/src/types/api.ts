@@ -30,6 +30,7 @@ export type AppSettings = {
   default_profile_name_expression: string;
   default_profile_prefix: string;
   default_profile_suffix: string;
+  debug_enabled: boolean;
   admin_allowed_cidrs: string[];
   xml_allowed_cidrs: string[];
 };
@@ -45,40 +46,100 @@ export type SourceAddressbook = {
   sync_token?: string | null;
 };
 
-export type Source = {
+export type CardDavSourceCredentialSummary = {
+  merge_strategy: SourceMergeStrategy;
+  server_url?: string;
+  username?: string;
+};
+
+export type GoogleSourceCredentialSummary = {
+  merge_strategy: SourceMergeStrategy;
+  account_email?: string;
+  google_client_id?: string;
+  google_redirect_uri?: string;
+  google_auth_uri?: string;
+  token_uri?: string;
+  google_client_secret_configured?: boolean;
+  google_refresh_token_configured?: boolean;
+};
+
+export type SourceCredentialSummary =
+  | CardDavSourceCredentialSummary
+  | GoogleSourceCredentialSummary;
+
+export type CardDavSourceCredentialPayload = {
+  merge_strategy?: SourceMergeStrategy;
+  server_url?: string;
+  username?: string;
+  password?: string;
+};
+
+export type GoogleSourceCredentialPayload = {
+  merge_strategy?: SourceMergeStrategy;
+  google_client_id?: string;
+  google_client_secret?: string;
+  google_redirect_uri?: string;
+  google_auth_uri?: string;
+  token_uri?: string;
+};
+
+type SourceBase = {
   id: string;
   name: string;
   slug: string;
-  type: SourceType;
   is_active: boolean;
   notes?: string | null;
   tags: string[];
   last_successful_sync_at?: string | null;
   last_error?: string | null;
   addressbooks: SourceAddressbook[];
-  credential_summary: Record<string, unknown>;
 };
 
-export type SourceCreatePayload = {
+export type CardDavSource = SourceBase & {
+  type: "carddav" | "nextcloud_carddav";
+  credential_summary: CardDavSourceCredentialSummary;
+};
+
+export type GoogleSource = SourceBase & {
+  type: "google";
+  credential_summary: GoogleSourceCredentialSummary;
+};
+
+export type Source = CardDavSource | GoogleSource;
+
+type SourceCreatePayloadBase = {
   name: string;
   slug: string;
-  type: SourceType;
   is_active: boolean;
   notes?: string;
   tags: string[];
-  credential: {
-    merge_strategy?: SourceMergeStrategy;
-    server_url?: string;
-    username?: string;
-    password?: string;
-    google_client_id?: string;
-    google_client_secret?: string;
-    google_redirect_uri?: string;
-    google_auth_uri?: string;
-    token_uri?: string;
-  };
   addressbooks: SourceAddressbook[];
 };
+
+export type CardDavSourceCreatePayload = SourceCreatePayloadBase & {
+  type: "carddav" | "nextcloud_carddav";
+  credential: CardDavSourceCredentialPayload;
+};
+
+export type GoogleSourceCreatePayload = SourceCreatePayloadBase & {
+  type: "google";
+  credential: GoogleSourceCredentialPayload;
+};
+
+export type SourceCreatePayload = CardDavSourceCreatePayload | GoogleSourceCreatePayload;
+
+export type SourceUpdatePayload = Partial<{
+  name: string;
+  slug: string;
+  is_active: boolean;
+  notes: string;
+  tags: string[];
+  addressbooks: SourceAddressbook[];
+}> &
+  (
+    | { type?: "google"; credential?: GoogleSourceCredentialPayload }
+    | { type?: "carddav" | "nextcloud_carddav"; credential?: CardDavSourceCredentialPayload }
+  );
 
 export type DuplicateHint = {
   kind: string;
@@ -123,6 +184,8 @@ export type Contact = {
 export type ContactListResponse = {
   items: Contact[];
   total: number;
+  offset: number;
+  limit: number;
 };
 
 export type RuleSetConfig = {
@@ -163,6 +226,16 @@ export type ExportProfile = {
   xml_url: string;
 };
 
+export type ExportProfilePayload = {
+  name: string;
+  slug: string;
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+  metadata: Record<string, never>;
+  rule_set: RuleSetConfig;
+};
+
 export type ExportPreviewItem = {
   contact_id: string;
   source_id: string;
@@ -186,9 +259,12 @@ export type ExportPreviewItem = {
 export type ExportPreviewResponse = {
   profile_id: string;
   profile_slug: string;
+  exported_total: number;
+  discarded_total: number;
+  preview_limit?: number | null;
   exported: ExportPreviewItem[];
   discarded: ExportPreviewItem[];
-  generated_xml: string;
+  generated_xml?: string | null;
 };
 
 export type DashboardResponse = {

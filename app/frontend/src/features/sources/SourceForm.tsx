@@ -1,29 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
-import type { AppSettings, Source, SourceCreatePayload, SourceMergeStrategy, SourceType } from "../../types/api";
-
-const sourceSchema = z.object({
-  name: z.string().min(2),
-  slug: z.string().min(2),
-  type: z.enum(["google", "carddav", "nextcloud_carddav"]),
-  merge_strategy: z.enum(["upsert_only", "mirror_source"]),
-  is_active: z.boolean(),
-  notes: z.string().optional(),
-  tags: z.string().default(""),
-  server_url: z.string().optional(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  google_client_id: z.string().optional(),
-  google_client_secret: z.string().optional(),
-  google_redirect_uri: z.string().optional(),
-  google_auth_uri: z.string().optional(),
-  token_uri: z.string().optional(),
-});
-
-type SourceFormValues = z.infer<typeof sourceSchema>;
+import type { AppSettings, Source, SourceCreatePayload, SourceType } from "../../types/api";
+import {
+  buildSourcePayload,
+  getSourceFormDefaults,
+  sourceSchema,
+  type SourceFormValues,
+} from "./formState";
 
 const sourceInstructions: Record<
   SourceType,
@@ -150,127 +135,74 @@ export function SourceForm({
 }) {
   const form = useForm<SourceFormValues>({
     resolver: zodResolver(sourceSchema),
-    defaultValues: {
-      name: source?.name ?? "",
-      slug: source?.slug ?? "",
-      type: source?.type ?? defaults?.default_new_source_type ?? "carddav",
-      merge_strategy: String(
-        source?.credential_summary.merge_strategy ?? defaults?.default_new_source_merge_strategy ?? "upsert_only",
-      ) as SourceMergeStrategy,
-      is_active: source?.is_active ?? true,
-      notes: source?.notes ?? "",
-      tags: source?.tags.join(", ") ?? "",
-      server_url: String(source?.credential_summary.server_url ?? ""),
-      username: String(source?.credential_summary.username ?? ""),
-      password: "",
-      google_client_id: String(source?.credential_summary.google_client_id ?? ""),
-      google_client_secret: "",
-      google_redirect_uri: String(
-        source?.credential_summary.google_redirect_uri ?? "http://localhost:8000/api/sources/oauth/google/callback",
-      ),
-      google_auth_uri: String(
-        source?.credential_summary.google_auth_uri ?? "https://accounts.google.com/o/oauth2/auth",
-      ),
-      token_uri: String(source?.credential_summary.token_uri ?? "https://oauth2.googleapis.com/token"),
-    },
+    defaultValues: getSourceFormDefaults(source, defaults),
   });
+  const {
+    formState: { errors },
+  } = form;
 
   const selectedType = form.watch("type");
 
   useEffect(() => {
-    if (source) {
-      form.reset({
-        name: source.name,
-        slug: source.slug,
-        type: source.type,
-        merge_strategy: String(source.credential_summary.merge_strategy ?? "upsert_only") as SourceMergeStrategy,
-        is_active: source.is_active,
-        notes: source.notes ?? "",
-        tags: source.tags.join(", "),
-        server_url: String(source.credential_summary.server_url ?? ""),
-        username: String(source.credential_summary.username ?? ""),
-        password: "",
-        google_client_id: String(source.credential_summary.google_client_id ?? ""),
-        google_client_secret: "",
-        google_redirect_uri: String(
-          source.credential_summary.google_redirect_uri ?? "http://localhost:8000/api/sources/oauth/google/callback",
-        ),
-        google_auth_uri: String(
-          source.credential_summary.google_auth_uri ?? "https://accounts.google.com/o/oauth2/auth",
-        ),
-        token_uri: String(source.credential_summary.token_uri ?? "https://oauth2.googleapis.com/token"),
-      });
-      return;
-    }
-    form.reset((currentValues) => ({
-      ...currentValues,
-      type: defaults?.default_new_source_type ?? "carddav",
-      merge_strategy: defaults?.default_new_source_merge_strategy ?? "upsert_only",
-    }));
+    form.reset(getSourceFormDefaults(source, defaults));
   }, [defaults, form, source]);
 
   return (
     <form
       className="form-grid"
-      onSubmit={form.handleSubmit((values) =>
-        onSubmit({
-          name: values.name,
-          slug: values.slug,
-          type: values.type as SourceType,
-          is_active: values.is_active,
-          notes: values.notes,
-          tags: values.tags
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
-          credential:
-            values.type === "google"
-              ? {
-                  merge_strategy: values.merge_strategy,
-                  google_client_id: values.google_client_id,
-                  google_client_secret: values.google_client_secret,
-                  google_redirect_uri: values.google_redirect_uri,
-                  google_auth_uri: values.google_auth_uri,
-                  token_uri: values.token_uri,
-                }
-              : {
-                  merge_strategy: values.merge_strategy,
-                  server_url: values.server_url,
-                  username: values.username,
-                  password: values.password,
-                },
-          addressbooks: source?.addressbooks ?? [],
-        })
-      )}
+      noValidate
+      onSubmit={form.handleSubmit((values) => onSubmit(buildSourcePayload(values, source)))}
     >
       <label>
         <span>Name</span>
         <span className="field-help">Display name of the source in the admin UI.</span>
-        <input {...form.register("name")} placeholder="Company CardDAV" />
+        <input
+          {...form.register("name")}
+          aria-invalid={Boolean(errors.name)}
+          className={errors.name ? "input-invalid" : undefined}
+          placeholder="Company CardDAV"
+        />
+        {errors.name ? <span className="field-error">{errors.name.message}</span> : null}
       </label>
       <label>
         <span>Slug</span>
         <span className="field-help">Technical short name used in APIs and internal references.</span>
-        <input {...form.register("slug")} placeholder="company-carddav" />
+        <input
+          {...form.register("slug")}
+          aria-invalid={Boolean(errors.slug)}
+          className={errors.slug ? "input-invalid" : undefined}
+          placeholder="company-carddav"
+        />
+        {errors.slug ? <span className="field-error">{errors.slug.message}</span> : null}
       </label>
       <label>
         <span>Type</span>
         <span className="field-help">Determines which credentials and adapter implementation are used for this source.</span>
-        <select {...form.register("type")}>
+        <select
+          {...form.register("type")}
+          aria-invalid={Boolean(errors.type)}
+          className={errors.type ? "input-invalid" : undefined}
+        >
           <option value="google">Google Contacts</option>
           <option value="carddav">CardDAV</option>
           <option value="nextcloud_carddav">Nextcloud Contacts</option>
         </select>
+        {errors.type ? <span className="field-error">{errors.type.message}</span> : null}
       </label>
       <label>
         <span>Merge strategy</span>
         <span className="field-help">
           Controls whether contacts missing in the source remain locally or are also deleted on the next successful sync.
         </span>
-        <select {...form.register("merge_strategy")}>
+        <select
+          {...form.register("merge_strategy")}
+          aria-invalid={Boolean(errors.merge_strategy)}
+          className={errors.merge_strategy ? "input-invalid" : undefined}
+        >
           <option value="upsert_only">Import and update only, never delete locally</option>
           <option value="mirror_source">Mirror source and delete locally removed contacts</option>
         </select>
+        {errors.merge_strategy ? <span className="field-error">{errors.merge_strategy.message}</span> : null}
       </label>
       <label className="checkbox-row">
         <input type="checkbox" {...form.register("is_active")} />
@@ -279,12 +211,25 @@ export function SourceForm({
       <label className="full-span">
         <span>Tags</span>
         <span className="field-help">Comma-separated tags used later for filtering and documentation.</span>
-        <input {...form.register("tags")} placeholder="private, team, priority" />
+        <input
+          {...form.register("tags")}
+          aria-invalid={Boolean(errors.tags)}
+          className={errors.tags ? "input-invalid" : undefined}
+          placeholder="private, team, priority"
+        />
+        {errors.tags ? <span className="field-error">{errors.tags.message}</span> : null}
       </label>
       <label className="full-span">
         <span>Notes</span>
         <span className="field-help">Internal description, such as the owner of the source or sync-specific details.</span>
-        <textarea {...form.register("notes")} rows={3} placeholder="Internal notes about this source" />
+        <textarea
+          {...form.register("notes")}
+          aria-invalid={Boolean(errors.notes)}
+          className={errors.notes ? "input-invalid" : undefined}
+          rows={3}
+          placeholder="Internal notes about this source"
+        />
+        {errors.notes ? <span className="field-error">{errors.notes.message}</span> : null}
       </label>
 
       <SourceInstructionPanel type={selectedType as SourceType} />
@@ -294,17 +239,36 @@ export function SourceForm({
           <label className="full-span">
             <span>Server URL</span>
             <span className="field-help">Base URL or address book URL of the CardDAV server. The app runs discovery and contact fetches against it.</span>
-            <input {...form.register("server_url")} placeholder="https://cloud.example.com/remote.php/dav/addressbooks/users/demo/" />
+            <input
+              {...form.register("server_url")}
+              aria-invalid={Boolean(errors.server_url)}
+              className={errors.server_url ? "input-invalid" : undefined}
+              placeholder="https://cloud.example.com/remote.php/dav/addressbooks/users/demo/"
+            />
+            {errors.server_url ? <span className="field-error">{errors.server_url.message}</span> : null}
           </label>
           <label>
             <span>Username</span>
             <span className="field-help">Login name for CardDAV or Nextcloud.</span>
-            <input {...form.register("username")} placeholder="jonas" />
+            <input
+              {...form.register("username")}
+              aria-invalid={Boolean(errors.username)}
+              className={errors.username ? "input-invalid" : undefined}
+              placeholder="jonas"
+            />
+            {errors.username ? <span className="field-error">{errors.username.message}</span> : null}
           </label>
           <label>
             <span>Password / app password</span>
             <span className="field-help">Stored in the backend only. Leave empty on an existing source to keep the current value.</span>
-            <input type="password" {...form.register("password")} placeholder={source ? "Leave empty to keep the current value" : ""} />
+            <input
+              type="password"
+              {...form.register("password")}
+              aria-invalid={Boolean(errors.password)}
+              className={errors.password ? "input-invalid" : undefined}
+              placeholder={source ? "Leave empty to keep the current value" : ""}
+            />
+            {errors.password ? <span className="field-error">{errors.password.message}</span> : null}
           </label>
         </>
       ) : (
@@ -314,8 +278,11 @@ export function SourceForm({
             <span className="field-help">OAuth client ID from Google Cloud Console for this exact source account.</span>
             <input
               {...form.register("google_client_id")}
+              aria-invalid={Boolean(errors.google_client_id)}
+              className={errors.google_client_id ? "input-invalid" : undefined}
               placeholder="1234567890-abcdefg.apps.googleusercontent.com"
             />
+            {errors.google_client_id ? <span className="field-error">{errors.google_client_id.message}</span> : null}
           </label>
           <label className="full-span">
             <span>Google Client Secret</span>
@@ -323,32 +290,44 @@ export function SourceForm({
             <input
               type="password"
               {...form.register("google_client_secret")}
+              aria-invalid={Boolean(errors.google_client_secret)}
+              className={errors.google_client_secret ? "input-invalid" : undefined}
               placeholder={source ? "Leave empty to keep the current value" : "GOCSPX-..."}
             />
+            {errors.google_client_secret ? <span className="field-error">{errors.google_client_secret.message}</span> : null}
           </label>
           <label className="full-span">
             <span>Redirect URI</span>
             <span className="field-help">Must match the Google configuration exactly. This is where the OAuth flow returns to the app.</span>
             <input
               {...form.register("google_redirect_uri")}
+              aria-invalid={Boolean(errors.google_redirect_uri)}
+              className={errors.google_redirect_uri ? "input-invalid" : undefined}
               placeholder="http://localhost:8000/api/sources/oauth/google/callback"
             />
+            {errors.google_redirect_uri ? <span className="field-error">{errors.google_redirect_uri.message}</span> : null}
           </label>
           <label className="full-span">
             <span>Auth URI</span>
             <span className="field-help">OAuth authorization endpoint. Keep the Google default in normal setups.</span>
             <input
               {...form.register("google_auth_uri")}
+              aria-invalid={Boolean(errors.google_auth_uri)}
+              className={errors.google_auth_uri ? "input-invalid" : undefined}
               placeholder="https://accounts.google.com/o/oauth2/auth"
             />
+            {errors.google_auth_uri ? <span className="field-error">{errors.google_auth_uri.message}</span> : null}
           </label>
           <label className="full-span">
             <span>Token URI</span>
             <span className="field-help">OAuth token endpoint used to exchange the code for access and refresh tokens.</span>
             <input
               {...form.register("token_uri")}
+              aria-invalid={Boolean(errors.token_uri)}
+              className={errors.token_uri ? "input-invalid" : undefined}
               placeholder="https://oauth2.googleapis.com/token"
             />
+            {errors.token_uri ? <span className="field-error">{errors.token_uri.message}</span> : null}
           </label>
           <div className="callout full-span">
             After saving, the OAuth link can be started with the `Google OAuth` button in the source list.

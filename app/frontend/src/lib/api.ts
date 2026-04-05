@@ -17,6 +17,8 @@ import type {
   Source,
   SourceAddressbook,
   SourceCreatePayload,
+  SourceUpdatePayload,
+  ExportProfilePayload,
   SyncJob,
 } from "../types/api";
 
@@ -53,7 +55,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       if (jsonPayload.detail) {
         message = jsonPayload.detail;
       }
-    } catch {}
+    } catch {
+      message = payload || `HTTP ${response.status}`;
+    }
     if (response.status === 401 && path !== "/api/auth/me" && typeof window !== "undefined") {
       window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
     }
@@ -99,30 +103,41 @@ export const api = {
   getSources: () => request<Source[]>("/api/sources"),
   createSource: (payload: SourceCreatePayload) =>
     request<Source>("/api/sources", { method: "POST", body: JSON.stringify(payload) }),
-  updateSource: (id: string, payload: Partial<SourceCreatePayload>) =>
+  updateSource: (id: string, payload: SourceUpdatePayload) =>
     request<Source>(`/api/sources/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteSource: (id: string) => request<{ message: string }>(`/api/sources/${id}`, { method: "DELETE" }),
   testSource: (id: string) => request<{ ok: boolean; message: string; capabilities: Record<string, unknown>; addressbooks: SourceAddressbook[] }>(`/api/sources/${id}/test`, { method: "POST" }),
   discoverAddressbooks: (id: string) => request<{ ok: boolean; addressbooks: SourceAddressbook[] }>(`/api/sources/${id}/discover-addressbooks`, { method: "POST" }),
   syncSource: (id: string) => request<SyncJob>(`/api/sources/${id}/sync`, { method: "POST" }),
   startGoogleOAuth: (id: string) => request<{ authorization_url: string }>(`/api/sources/${id}/oauth/google/start`, { method: "POST" }),
-  getContacts: (query?: string, sourceId?: string) => {
+  getContacts: (query?: string, sourceId?: string, options?: { offset?: number; limit?: number }) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (sourceId) params.set("source_id", sourceId);
+    if (typeof options?.offset === "number") params.set("offset", String(options.offset));
+    if (typeof options?.limit === "number") params.set("limit", String(options.limit));
     return request<ContactListResponse>(`/api/contacts?${params.toString()}`);
   },
   getContact: (id: string) => request<Contact>(`/api/contacts/${id}`),
   deleteContact: (id: string) => request<{ message: string }>(`/api/contacts/${id}`, { method: "DELETE" }),
   getProfiles: () => request<ExportProfile[]>("/api/export-profiles"),
-  createProfile: (payload: Record<string, unknown>) =>
+  createProfile: (payload: ExportProfilePayload) =>
     request<ExportProfile>("/api/export-profiles", { method: "POST", body: JSON.stringify(payload) }),
-  updateProfile: (id: string, payload: Record<string, unknown>) =>
+  updateProfile: (id: string, payload: ExportProfilePayload) =>
     request<ExportProfile>(`/api/export-profiles/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   previewProfile: (id: string) =>
     request<ExportPreviewResponse>(`/api/export-profiles/${id}/preview`, { method: "POST" }),
-  getPreview: (profileId?: string) =>
-    request<ExportPreviewResponse>(`/api/exports/preview${profileId ? `?profile_id=${profileId}` : ""}`),
+  getPreview: (
+    profileId?: string,
+    options?: { previewLimit?: number; includeXml?: boolean },
+  ) => {
+    const params = new URLSearchParams();
+    if (profileId) params.set("profile_id", profileId);
+    if (typeof options?.previewLimit === "number") params.set("preview_limit", String(options.previewLimit));
+    if (typeof options?.includeXml === "boolean") params.set("include_xml", String(options.includeXml));
+    const suffix = params.toString();
+    return request<ExportPreviewResponse>(`/api/exports/preview${suffix ? `?${suffix}` : ""}`);
+  },
   getJobs: () => request<SyncJob[]>("/api/jobs"),
   getLogs: () => request<LogsResponse>("/api/logs"),
   getAppSettings: () => request<AppSettings>("/api/settings"),

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { AUTH_UNAUTHORIZED_EVENT, ApiError, api } from "../../lib/api";
@@ -18,12 +18,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const clearAuth = () => {
+  const clearAuth = useCallback(() => {
     queryClient.setQueryData<AuthenticatedAdmin | null>(AUTH_QUERY_KEY, null);
     queryClient.removeQueries({
       predicate: (query) => query.queryKey[0] !== "auth",
     });
-  };
+  }, [queryClient]);
   const authQuery = useQuery<AuthenticatedAdmin | null>({
     queryKey: AUTH_QUERY_KEY,
     queryFn: api.getCurrentAdmin,
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
-  }, [queryClient]);
+  }, [clearAuth, queryClient]);
 
   return (
     <AuthContext.Provider

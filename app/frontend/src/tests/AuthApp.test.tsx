@@ -227,6 +227,7 @@ test("settings page renders the security section and registered passkeys", async
         default_profile_name_expression: "{full_name}",
         default_profile_prefix: "",
         default_profile_suffix: "",
+        debug_enabled: false,
         admin_allowed_cidrs: ["0.0.0.0/0", "::/0"],
         xml_allowed_cidrs: ["192.168.1.0/24"],
       });
@@ -253,4 +254,5 @@ test("settings page renders the security section and registered passkeys", async
   expect(await screen.findByRole("heading", { name: "Security" })).toBeInTheDocument();
   expect(await screen.findByText("Office MacBook")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("Office MacBook")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: /Enable debug logging/i })).not.toBeChecked();
 });

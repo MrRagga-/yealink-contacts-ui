@@ -1,3 +1,4 @@
+import { Suspense, lazy, type ReactNode } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
@@ -6,28 +7,45 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { PasswordChangePage } from "./features/auth/PasswordChangePage";
 import { useAuth } from "./features/auth/AuthProvider";
 import { ApiError } from "./lib/api";
-import { DashboardPage } from "./pages/DashboardPage";
-import { ContactsPage } from "./pages/ContactsPage";
-import { ExportsPage } from "./pages/ExportsPage";
-import { JobsPage } from "./pages/JobsPage";
-import { RulesPage } from "./pages/RulesPage";
-import { AboutPage } from "./pages/AboutPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { SourcesPage } from "./pages/SourcesPage";
+
+const DashboardPage = lazy(async () => ({ default: (await import("./pages/DashboardPage")).DashboardPage }));
+const SourcesPage = lazy(async () => ({ default: (await import("./pages/SourcesPage")).SourcesPage }));
+const ContactsPage = lazy(async () => ({ default: (await import("./pages/ContactsPage")).ContactsPage }));
+const RulesPage = lazy(async () => ({ default: (await import("./pages/RulesPage")).RulesPage }));
+const ExportsPage = lazy(async () => ({ default: (await import("./pages/ExportsPage")).ExportsPage }));
+const JobsPage = lazy(async () => ({ default: (await import("./pages/JobsPage")).JobsPage }));
+const SettingsPage = lazy(async () => ({ default: (await import("./pages/SettingsPage")).SettingsPage }));
+const AboutPage = lazy(async () => ({ default: (await import("./pages/AboutPage")).AboutPage }));
+
+function RouteLoadingScreen() {
+  return (
+    <div className="page">
+      <section className="section-card">
+        <span className="eyebrow">Loading</span>
+        <h2>Preparing page</h2>
+        <p className="subtle">Loading the next view and keeping your admin session active.</p>
+      </section>
+    </div>
+  );
+}
+
+function withRouteSuspense(element: ReactNode) {
+  return <Suspense fallback={<RouteLoadingScreen />}>{element}</Suspense>;
+}
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: "sources", element: <SourcesPage /> },
-      { path: "contacts", element: <ContactsPage /> },
-      { path: "rules", element: <RulesPage /> },
-      { path: "exports", element: <ExportsPage /> },
-      { path: "jobs", element: <JobsPage /> },
-      { path: "settings", element: <SettingsPage /> },
-      { path: "about", element: <AboutPage /> },
+      { index: true, element: withRouteSuspense(<DashboardPage />) },
+      { path: "sources", element: withRouteSuspense(<SourcesPage />) },
+      { path: "contacts", element: withRouteSuspense(<ContactsPage />) },
+      { path: "rules", element: withRouteSuspense(<RulesPage />) },
+      { path: "exports", element: withRouteSuspense(<ExportsPage />) },
+      { path: "jobs", element: withRouteSuspense(<JobsPage />) },
+      { path: "settings", element: withRouteSuspense(<SettingsPage />) },
+      { path: "about", element: withRouteSuspense(<AboutPage />) },
     ],
   },
 ]);
