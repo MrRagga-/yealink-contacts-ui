@@ -20,9 +20,11 @@ router = APIRouter(prefix="/contacts", tags=["contacts"])
 def contacts(
     q: str | None = Query(default=None),
     source_id: str | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(db_session),
 ) -> ContactListResponse:
-    items = list_contacts(db, q, source_id)
+    items, total = list_contacts(db, q, source_id, offset=offset, limit=limit)
     hints = build_duplicate_hints(items)
     serialized = []
     for item in items:
@@ -34,7 +36,7 @@ def contacts(
                 }
             )
         )
-    return ContactListResponse(items=serialized, total=len(serialized))
+    return ContactListResponse(items=serialized, total=total, offset=offset, limit=limit)
 
 
 @router.get("/{contact_id}", response_model=ContactResponse)

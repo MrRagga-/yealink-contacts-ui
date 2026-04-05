@@ -29,7 +29,7 @@ from yealink_contacts.services.source_service import (
     summarize_source,
     update_source,
 )
-from yealink_contacts.services.sync_service import run_sync
+from yealink_contacts.services.sync_service import queue_sync
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -129,7 +129,7 @@ def discover_addressbooks(source=Depends(get_source_or_404)) -> SourceTestRespon
 
 @router.post("/{source_id}/sync")
 def sync_source(source=Depends(get_source_or_404), db: Session = Depends(db_session)):
-    return run_sync(db, source)
+    return queue_sync(db, source)
 
 
 @router.post("/{source_id}/oauth/google/start")

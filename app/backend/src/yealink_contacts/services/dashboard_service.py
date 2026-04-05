@@ -8,7 +8,7 @@ from yealink_contacts.models.export_profile import ExportProfile
 from yealink_contacts.models.job import SyncJob
 from yealink_contacts.models.source import Source
 from yealink_contacts.schemas.dashboard import DashboardResponse
-from yealink_contacts.services.export_service import build_phonebook_xml, list_export_profiles
+from yealink_contacts.services.export_service import count_exported_contacts, list_export_profiles
 
 
 def get_dashboard(db: Session) -> DashboardResponse:
@@ -16,14 +16,13 @@ def get_dashboard(db: Session) -> DashboardResponse:
     active_source_count = db.scalar(select(func.count()).select_from(Source).where(Source.is_active.is_(True))) or 0
     export_profile_count = db.scalar(select(func.count()).select_from(ExportProfile)) or 0
     contact_count = db.scalar(select(func.count()).select_from(Contact)) or 0
-    last_sync_job = db.execute(select(SyncJob).order_by(SyncJob.started_at.desc())).scalar_one_or_none()
+    last_sync_job = db.scalars(select(SyncJob).order_by(SyncJob.started_at.desc()).limit(1)).first()
     exported_contacts = 0
     xml_endpoints = []
     for profile in list_export_profiles(db):
         xml_endpoints.append(f"/api/yealink/phonebook/{profile.slug}.xml")
         try:
-            phonebook = build_phonebook_xml(db, profile.slug)
-            exported_contacts += phonebook.xml_body.count("<DirectoryEntry>")
+            exported_contacts += count_exported_contacts(db, profile)
         except Exception:
             continue
     recent_errors = [item.last_error for item in db.execute(select(Source).where(Source.last_error.is_not(None))).scalars()]

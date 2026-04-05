@@ -14,7 +14,9 @@ from yealink_contacts.adapters.sources.google import GoogleAdapterConfig, Google
 from yealink_contacts.core.security import cipher
 from yealink_contacts.models.source import Source, SourceAddressbook, SourceCredential, SourceType
 from yealink_contacts.schemas.source import (
+    CardDavCredentialSummary,
     GoogleAuthStartResponse,
+    GoogleCredentialSummary,
     SourceAddressbookBase,
     SourceCreate,
     SourceCredentialPayload,
@@ -22,7 +24,7 @@ from yealink_contacts.schemas.source import (
     SourceUpdate,
 )
 from yealink_contacts.services.audit import write_audit_log
-from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
+from yealink_contacts.services.export_service import invalidate_phonebook_cache
 from yealink_contacts.services.utils import slugify
 
 DEFAULT_GOOGLE_REDIRECT_URI = "http://localhost:8000/api/sources/oauth/google/callback"
@@ -100,7 +102,6 @@ def delete_source(db: Session, source: Source) -> None:
     db.delete(source)
     db.commit()
     invalidate_phonebook_cache()
-    warm_phonebook_cache(db)
 
 
 def get_credential_payload(source: Source) -> SourceCredentialPayload:
@@ -112,26 +113,23 @@ def get_credential_payload(source: Source) -> SourceCredentialPayload:
 
 def summarize_source(source: Source) -> SourceResponse:
     credential = get_credential_payload(source)
-    summary: dict[str, str | bool] = {}
-    summary["merge_strategy"] = credential.merge_strategy.value
-    if credential.server_url:
-        summary["server_url"] = credential.server_url
-    if credential.username:
-        summary["username"] = credential.username
-    if credential.account_email:
-        summary["account_email"] = credential.account_email
-    if credential.google_client_id:
-        summary["google_client_id"] = credential.google_client_id
-    if credential.google_redirect_uri:
-        summary["google_redirect_uri"] = credential.google_redirect_uri
-    if credential.google_auth_uri:
-        summary["google_auth_uri"] = credential.google_auth_uri
-    if credential.token_uri:
-        summary["token_uri"] = credential.token_uri
-    if credential.google_client_secret:
-        summary["google_client_secret_configured"] = True
-    if credential.refresh_token:
-        summary["google_refresh_token_configured"] = True
+    if source.type == SourceType.google:
+        summary = GoogleCredentialSummary(
+            merge_strategy=credential.merge_strategy,
+            account_email=credential.account_email,
+            google_client_id=credential.google_client_id,
+            google_redirect_uri=credential.google_redirect_uri,
+            google_auth_uri=credential.google_auth_uri,
+            token_uri=credential.token_uri,
+            google_client_secret_configured=bool(credential.google_client_secret),
+            google_refresh_token_configured=bool(credential.refresh_token),
+        )
+    else:
+        summary = CardDavCredentialSummary(
+            merge_strategy=credential.merge_strategy,
+            server_url=credential.server_url,
+            username=credential.username,
+        )
     return SourceResponse.model_validate(
         {
             **source.__dict__,

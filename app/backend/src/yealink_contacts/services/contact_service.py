@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from yealink_contacts.dedup.service import DuplicateDetector
 from yealink_contacts.models.contact import Contact
 from yealink_contacts.services.audit import write_audit_log
-from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
+from yealink_contacts.services.export_service import invalidate_phonebook_cache
 
 
-def list_contacts(db: Session, query: str | None = None, source_id: str | None = None) -> list[Contact]:
-    statement = select(Contact).options(
-        joinedload(Contact.source),
-        joinedload(Contact.phone_numbers),
-        joinedload(Contact.emails),
-        joinedload(Contact.addresses),
-    )
+def _apply_contact_filters(statement, query: str | None = None, source_id: str | None = None):
     if source_id:
         statement = statement.where(Contact.source_id == source_id)
     if query:
@@ -27,7 +21,34 @@ def list_contacts(db: Session, query: str | None = None, source_id: str | None =
                 Contact.notes.ilike(like_query),
             )
         )
-    return list(db.execute(statement.order_by(Contact.full_name)).unique().scalars().all())
+    return statement
+
+
+def list_contacts(
+    db: Session,
+    query: str | None = None,
+    source_id: str | None = None,
+    *,
+    offset: int = 0,
+    limit: int = 25,
+) -> tuple[list[Contact], int]:
+    count_statement = _apply_contact_filters(select(func.count()).select_from(Contact), query, source_id)
+    total = db.scalar(count_statement) or 0
+
+    statement = _apply_contact_filters(
+        select(Contact).options(
+        joinedload(Contact.source),
+        joinedload(Contact.phone_numbers),
+        joinedload(Contact.emails),
+        joinedload(Contact.addresses),
+        ),
+        query,
+        source_id,
+    )
+    items = list(
+        db.execute(statement.order_by(Contact.full_name).offset(offset).limit(limit)).unique().scalars().all()
+    )
+    return items, total
 
 
 def get_contact(db: Session, contact_id: str) -> Contact | None:
@@ -62,7 +83,6 @@ def delete_contact(db: Session, contact: Contact) -> None:
     db.delete(contact)
     db.commit()
     invalidate_phonebook_cache()
-    warm_phonebook_cache(db)
 
 
 def build_duplicate_hints(contacts: list[Contact]) -> dict[str, list]:

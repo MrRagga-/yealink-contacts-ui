@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -62,17 +61,37 @@ class SourceUpdate(BaseModel):
     addressbooks: list[SourceAddressbookBase] | None = None
 
 
+class CardDavCredentialSummary(BaseModel):
+    merge_strategy: SourceMergeStrategy = SourceMergeStrategy.upsert_only
+    server_url: str | None = None
+    username: str | None = None
+
+
+class GoogleCredentialSummary(BaseModel):
+    merge_strategy: SourceMergeStrategy = SourceMergeStrategy.upsert_only
+    account_email: str | None = None
+    google_client_id: str | None = None
+    google_redirect_uri: str | None = None
+    google_auth_uri: str | None = None
+    token_uri: str | None = None
+    google_client_secret_configured: bool = False
+    google_refresh_token_configured: bool = False
+
+
+SourceCredentialSummary = CardDavCredentialSummary | GoogleCredentialSummary
+
+
 class SourceResponse(TimestampedResponse, SourceBase):
     last_successful_sync_at: datetime | None = None
     last_error: str | None = None
     addressbooks: list[SourceAddressbookResponse] = Field(default_factory=list)
-    credential_summary: dict[str, Any] = Field(default_factory=dict)
+    credential_summary: SourceCredentialSummary = Field(default_factory=CardDavCredentialSummary)
 
 
 class SourceTestResponse(BaseModel):
     ok: bool
     message: str
-    capabilities: dict[str, Any] = Field(default_factory=dict)
+    capabilities: dict[str, object] = Field(default_factory=dict)
     addressbooks: list[SourceAddressbookBase] = Field(default_factory=list)
 
 

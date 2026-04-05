@@ -9,7 +9,6 @@ from yealink_contacts.services.export_service import (
     invalidate_phonebook_cache,
     list_export_profiles,
     normalize_profile_slug,
-    warm_phonebook_cache,
 )
 from yealink_contacts.services.settings_service import get_app_settings, update_app_settings
 from yealink_contacts.services.source_service import (
@@ -84,5 +83,4 @@ def import_configuration(db: Session, payload: AppConfigExport) -> AppConfigExpo
         db.add(entity)
     db.commit()
     invalidate_phonebook_cache()
-    warm_phonebook_cache(db)
     return export_configuration(db)

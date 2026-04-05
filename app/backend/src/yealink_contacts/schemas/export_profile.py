@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from yealink_contacts.schemas.common import TimestampedResponse
@@ -12,7 +14,7 @@ class ExportProfileBase(BaseModel):
     description: str | None = None
     is_active: bool = True
     sort_order: int = 0
-    metadata: dict = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExportProfileCreate(ExportProfileBase):
@@ -25,7 +27,7 @@ class ExportProfileUpdate(BaseModel):
     description: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
     rule_set: RuleSetConfig | None = None
 
 

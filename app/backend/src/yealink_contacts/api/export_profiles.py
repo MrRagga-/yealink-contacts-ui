@@ -43,5 +43,10 @@ def update_profile(
 
 
 @router.post("/{profile_id}/preview", response_model=ExportPreviewResponse)
-def preview(profile=Depends(get_profile_or_404), db: Session = Depends(db_session)) -> ExportPreviewResponse:
-    return generate_preview(db, profile)
+def preview(
+    profile=Depends(get_profile_or_404),
+    preview_limit: int | None = None,
+    include_xml: bool = True,
+    db: Session = Depends(db_session),
+) -> ExportPreviewResponse:
+    return generate_preview(db, profile, preview_limit=preview_limit, include_xml=include_xml)

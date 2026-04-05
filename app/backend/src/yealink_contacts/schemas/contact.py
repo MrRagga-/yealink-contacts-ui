@@ -90,6 +90,8 @@ class ContactListItemResponse(TimestampedResponse):
 class ContactListResponse(BaseModel):
     items: list[ContactListItemResponse]
     total: int
+    offset: int
+    limit: int
 
 
 class ExportPreviewItem(BaseModel):
@@ -106,6 +108,9 @@ class ExportPreviewItem(BaseModel):
 class ExportPreviewResponse(BaseModel):
     profile_id: str
     profile_slug: str
+    exported_total: int
+    discarded_total: int
+    preview_limit: int | None = None
     exported: list[ExportPreviewItem] = Field(default_factory=list)
     discarded: list[ExportPreviewItem] = Field(default_factory=list)
-    generated_xml: str
+    generated_xml: str | None = None

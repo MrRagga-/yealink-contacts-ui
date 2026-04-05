@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from threading import Thread
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from yealink_contacts.db.session import SessionLocal
 from yealink_contacts.models.contact import Contact, ContactAddress, ContactEmail, ContactPhone
 from yealink_contacts.models.job import SyncJob, SyncJobEvent, SyncJobStatus
 from yealink_contacts.models.source import Source, SourceMergeStrategy
 from yealink_contacts.services.audit import write_audit_log
-from yealink_contacts.services.export_service import invalidate_phonebook_cache, warm_phonebook_cache
+from yealink_contacts.services.export_service import invalidate_phonebook_cache
 from yealink_contacts.services.normalization import normalize_contact_payload
 from yealink_contacts.services.source_service import build_adapter, get_credential_payload
 from yealink_contacts.services.utils import content_hash
@@ -21,6 +23,76 @@ def run_sync(db: Session, source: Source) -> SyncJob:
     db.add(job)
     db.flush()
     _event(job, "info", f"Sync started for source {source.name}.")
+    _run_sync(db, source, job)
+    return _reload_job(db, job.id)
+
+
+def get_active_sync_job(db: Session, source_id: str) -> SyncJob | None:
+    return (
+        db.execute(
+            select(SyncJob)
+            .where(
+                SyncJob.source_id == source_id,
+                SyncJob.status.in_([SyncJobStatus.pending, SyncJobStatus.running]),
+            )
+            .options(joinedload(SyncJob.events))
+            .order_by(SyncJob.created_at.desc())
+        )
+        .unique()
+        .scalar_one_or_none()
+    )
+
+
+def queue_sync(db: Session, source: Source) -> SyncJob:
+    existing = get_active_sync_job(db, source.id)
+    if existing is not None:
+        return existing
+
+    job = SyncJob(source_id=source.id, status=SyncJobStatus.pending, trigger_type="manual")
+    db.add(job)
+    db.flush()
+    _event(job, "info", f"Sync queued for source {source.name}.")
+    db.commit()
+    queued_job = _reload_job(db, job.id)
+    start_sync_job(queued_job.id)
+    return queued_job
+
+
+def start_sync_job(job_id: str) -> None:
+    Thread(target=run_queued_sync, args=(job_id,), daemon=True).start()
+
+
+def run_queued_sync(job_id: str) -> None:
+    with SessionLocal() as db:
+        job = (
+            db.execute(select(SyncJob).where(SyncJob.id == job_id).options(joinedload(SyncJob.events)))
+            .unique()
+            .scalar_one_or_none()
+        )
+        if job is None or not job.source_id:
+            return
+
+        source = (
+            db.execute(select(Source).where(Source.id == job.source_id))
+            .unique()
+            .scalar_one_or_none()
+        )
+        if source is None:
+            job.status = SyncJobStatus.failed
+            job.error_message = "Source not found."
+            _event(job, "error", "Sync failed.", {"error": "Source not found."})
+            job.finished_at = datetime.now(UTC)
+            db.commit()
+            return
+
+        job.status = SyncJobStatus.running
+        job.started_at = datetime.now(UTC)
+        _event(job, "info", f"Sync started for source {source.name}.")
+        db.flush()
+        _run_sync(db, source, job)
+
+
+def _run_sync(db: Session, source: Source, job: SyncJob) -> None:
     try:
         adapter = build_adapter(source)
         credential = get_credential_payload(source)
@@ -69,10 +141,11 @@ def run_sync(db: Session, source: Source) -> SyncJob:
     job.finished_at = datetime.now(UTC)
     db.commit()
     invalidate_phonebook_cache()
-    warm_phonebook_cache(db)
-    db.refresh(job)
+
+
+def _reload_job(db: Session, job_id: str) -> SyncJob:
     return (
-        db.execute(select(SyncJob).where(SyncJob.id == job.id).options(joinedload(SyncJob.events)))
+        db.execute(select(SyncJob).where(SyncJob.id == job_id).options(joinedload(SyncJob.events)))
         .unique()
         .scalar_one()
     )

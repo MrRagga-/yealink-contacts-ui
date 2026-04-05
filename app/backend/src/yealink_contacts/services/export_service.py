@@ -56,7 +56,6 @@ def create_export_profile(db: Session, payload: ExportProfileCreate) -> ExportPr
     db.refresh(profile)
     created = get_export_profile(db, profile.id) or profile
     invalidate_phonebook_cache()
-    warm_phonebook_cache(db, created.slug)
     return created
 
 
@@ -89,7 +88,6 @@ def update_export_profile(
     invalidate_phonebook_cache()
     if previous_slug != updated.slug:
         invalidate_phonebook_cache(previous_slug)
-    warm_phonebook_cache(db, updated.slug)
     return updated
 
 
@@ -129,7 +127,13 @@ def serialize_export_profile(profile: ExportProfile) -> ExportProfileResponse:
     )
 
 
-def generate_preview(db: Session, profile: ExportProfile) -> ExportPreviewResponse:
+def generate_preview(
+    db: Session,
+    profile: ExportProfile,
+    *,
+    preview_limit: int | None = None,
+    include_xml: bool = True,
+) -> ExportPreviewResponse:
     rules = RuleSetConfig.model_validate(profile.rule_set.rules_json if profile.rule_set else {})
     contacts = list(
         db.execute(
@@ -145,6 +149,9 @@ def generate_preview(db: Session, profile: ExportProfile) -> ExportPreviewRespon
     engine = RulesEngine()
     exported: list[ExportPreviewItem] = []
     discarded: list[ExportPreviewItem] = []
+    exported_total = 0
+    discarded_total = 0
+    exported_for_xml: list[ExportPreviewItem] = [] if include_xml else []
 
     for contact in contacts:
         explanation = engine.explain(contact, rules)
@@ -159,18 +166,43 @@ def generate_preview(db: Session, profile: ExportProfile) -> ExportPreviewRespon
             duplicate_hints=duplicate_hints.get(contact.id, []),
         )
         if explanation.included:
-            exported.append(item)
+            exported_total += 1
+            if preview_limit is None or len(exported) < preview_limit:
+                exported.append(item)
+            if include_xml:
+                exported_for_xml.append(item)
         else:
-            discarded.append(item)
+            discarded_total += 1
+            if preview_limit is None or len(discarded) < preview_limit:
+                discarded.append(item)
 
-    xml = YealinkOutputAdapter(profile.name, exported).render()
+    xml = YealinkOutputAdapter(profile.name, exported_for_xml).render() if include_xml else None
     return ExportPreviewResponse(
         profile_id=profile.id,
         profile_slug=profile.slug,
+        exported_total=exported_total,
+        discarded_total=discarded_total,
+        preview_limit=preview_limit,
         exported=exported,
         discarded=discarded,
         generated_xml=xml,
     )
+
+
+def count_exported_contacts(db: Session, profile: ExportProfile) -> int:
+    rules = RuleSetConfig.model_validate(profile.rule_set.rules_json if profile.rule_set else {})
+    contacts = list(
+        db.execute(
+            select(Contact)
+            .options(joinedload(Contact.source), joinedload(Contact.phone_numbers), joinedload(Contact.emails))
+            .order_by(Contact.full_name)
+        )
+        .unique()
+        .scalars()
+        .all()
+    )
+    engine = RulesEngine()
+    return sum(1 for contact in contacts if engine.explain(contact, rules).included)
 
 
 def build_phonebook_xml(db: Session, slug: str) -> CachedPhonebook:
@@ -181,8 +213,8 @@ def build_phonebook_xml(db: Session, slug: str) -> CachedPhonebook:
     profile = get_export_profile_by_slug(db, slug)
     if profile is None:
         raise ValueError("Export profile not found.")
-    preview = generate_preview(db, profile)
-    return store_cached_phonebook(slug, preview.generated_xml, "application/xml; charset=utf-8")
+    preview = generate_preview(db, profile, include_xml=True)
+    return store_cached_phonebook(slug, preview.generated_xml or "", "application/xml; charset=utf-8")
 
 
 def ensure_default_profiles(db: Session) -> None:
