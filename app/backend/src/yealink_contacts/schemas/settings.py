@@ -24,6 +24,7 @@ class AppSettingsBase(BaseModel):
     default_profile_name_expression: str = "{full_name}"
     default_profile_prefix: str = ""
     default_profile_suffix: str = ""
+    debug_enabled: bool = False
     admin_allowed_cidrs: list[str] = Field(default_factory=lambda: ALLOW_ALL_CIDRS.copy())
     xml_allowed_cidrs: list[str] = Field(default_factory=lambda: ALLOW_ALL_CIDRS.copy())
 
@@ -48,6 +49,7 @@ class AppSettingsUpdate(BaseModel):
     default_profile_name_expression: str | None = None
     default_profile_prefix: str | None = None
     default_profile_suffix: str | None = None
+    debug_enabled: bool | None = None
     admin_allowed_cidrs: list[str] | None = None
     xml_allowed_cidrs: list[str] | None = None
 

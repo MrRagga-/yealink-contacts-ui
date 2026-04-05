@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
+import yealink_contacts.main as app_main
 from yealink_contacts.models.app_setting import AppSetting
 from yealink_contacts.models.auth import AdminUser, PasskeyCredential
 from yealink_contacts.services.network_security import resolve_client_ip
@@ -64,11 +65,38 @@ def test_admin_and_xml_acl_lists_are_enforced(client, db):
     db.add(AppSetting(key="xml_allowed_cidrs", value=["10.0.0.0/8"]))
     db.commit()
 
-    login = client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
-    xml = client.get("/api/yealink/phonebook/default.xml")
+    headers = {"X-Forwarded-For": "203.0.113.25"}
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "admin"}, headers=headers)
+    xml = client.get("/api/yealink/phonebook/default.xml", headers=headers)
 
     assert login.status_code == 403
     assert xml.status_code == 403
+
+
+def test_localhost_is_never_blocked_by_acl_lists(client, db):
+    db.add(AppSetting(key="admin_allowed_cidrs", value=["10.0.0.0/8"]))
+    db.add(AppSetting(key="xml_allowed_cidrs", value=["10.0.0.0/8"]))
+    db.commit()
+
+    dashboard = client.get("/api/dashboard")
+    xml = client.get("/api/yealink/phonebook/default.xml")
+
+    assert dashboard.status_code == 401
+    assert xml.status_code == 200
+
+
+def test_admin_acl_can_be_overridden_from_environment(client, db, monkeypatch):
+    db.add(AppSetting(key="admin_allowed_cidrs", value=["10.0.0.0/8"]))
+    db.commit()
+    monkeypatch.setattr(app_main.settings, "admin_allowed_cidrs_override", ["0.0.0.0/0", "::/0"])
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "admin"},
+        headers={"X-Forwarded-For": "203.0.113.25"},
+    )
+
+    assert login.status_code == 200
 
 
 def test_trusted_proxy_resolution_prefers_forwarded_ip_only_for_trusted_proxies():
@@ -79,6 +107,47 @@ def test_trusted_proxy_resolution_prefers_forwarded_ip_only_for_trusted_proxies(
 
     assert str(forwarded) == "203.0.113.50"
     assert str(direct) == "192.168.1.5"
+
+
+def test_trusted_proxy_resolution_normalizes_ipv4_mapped_forwarded_addresses():
+    trusted = ["127.0.0.0/8"]
+
+    forwarded = resolve_client_ip("127.0.0.1", "::ffff:192.168.23.50", trusted)
+
+    assert str(forwarded) == "192.168.23.50"
+
+
+def test_debug_acl_logging_reports_resolved_client_ip(client, db, monkeypatch):
+    captured: list[dict[str, object]] = []
+
+    class DummyLogger:
+        def info(self, event: str, **fields: object) -> None:
+            captured.append({"event": event, **fields})
+
+    monkeypatch.setattr(app_main, "logger", DummyLogger())
+    monkeypatch.setattr(app_main.settings, "trusted_proxy_cidrs", [])
+
+    db.add(AppSetting(key="debug_enabled", value=True))
+    db.add(AppSetting(key="admin_allowed_cidrs", value=["192.168.23.0/24"]))
+    db.commit()
+
+    response = client.get("/api/dashboard", headers={"X-Forwarded-For": "192.168.23.254"})
+
+    assert response.status_code == 401
+    assert captured == [
+        {
+            "event": "acl_ip_debug",
+            "path": "/api/dashboard",
+            "method": "GET",
+            "scope": "admin",
+            "peer_host": "testclient",
+            "x_forwarded_for": "192.168.23.254",
+            "trusted_proxy_cidrs": ["127.0.0.0/8", "::1/128"],
+            "resolved_client_ip": "192.168.23.254",
+            "allowed_cidrs": ["127.0.0.0/8", "::1/128", "192.168.23.0/24"],
+            "allowed": True,
+        }
+    ]
 
 
 def test_passkey_registration_and_authentication_flow(admin_client, db, monkeypatch):

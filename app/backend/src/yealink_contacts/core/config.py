@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from ipaddress import ip_network
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -9,6 +10,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 DOCKER_ENV_MARKER = Path("/.dockerenv")
+LOCAL_PROXY_CIDRS = ["127.0.0.0/8", "::1/128"]
+LOCALHOST_CIDRS = ["127.0.0.0/8", "::1/128"]
+
+
+def _normalize_cidrs(values: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for value in values:
+        cidr = str(ip_network(value, strict=False))
+        if cidr not in normalized:
+            normalized.append(cidr)
+    return normalized
 
 
 class Settings(BaseSettings):
@@ -26,6 +38,8 @@ class Settings(BaseSettings):
     xml_public_base_url: str | None = Field(default=None, alias="XML_PUBLIC_BASE_URL")
     sync_http_timeout: int = Field(default=20, alias="SYNC_HTTP_TIMEOUT")
     trusted_proxy_cidrs: list[str] = Field(default_factory=list, alias="TRUSTED_PROXY_CIDRS")
+    admin_allowed_cidrs_override: list[str] = Field(default_factory=list, alias="ADMIN_ALLOWED_CIDRS_OVERRIDE")
+    xml_allowed_cidrs_override: list[str] = Field(default_factory=list, alias="XML_ALLOWED_CIDRS_OVERRIDE")
     session_cookie_name: str = Field(default="yealink_admin_session", alias="SESSION_COOKIE_NAME")
     session_max_age_seconds: int = Field(default=60 * 60 * 12, alias="SESSION_MAX_AGE_SECONDS")
     webauthn_rp_id: str | None = Field(default=None, alias="WEBAUTHN_RP_ID")
@@ -38,14 +52,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("trusted_proxy_cidrs", mode="before")
+    @field_validator("trusted_proxy_cidrs", "admin_allowed_cidrs_override", "xml_allowed_cidrs_override", mode="before")
     @classmethod
-    def split_trusted_proxy_cidrs(cls, value: str | list[str] | None) -> list[str]:
+    def split_cidr_lists(cls, value: str | list[str] | None) -> list[str]:
         if value is None:
             return []
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @property
+    def resolved_trusted_proxy_cidrs(self) -> list[str]:
+        if self.app_env != "development":
+            return _normalize_cidrs(self.trusted_proxy_cidrs)
+        return _normalize_cidrs([*self.trusted_proxy_cidrs, *LOCAL_PROXY_CIDRS])
+
+    def resolve_admin_allowed_cidrs(self, configured_cidrs: list[str]) -> list[str]:
+        effective = self.admin_allowed_cidrs_override or configured_cidrs
+        return _normalize_cidrs([*LOCALHOST_CIDRS, *effective])
+
+    def resolve_xml_allowed_cidrs(self, configured_cidrs: list[str]) -> list[str]:
+        effective = self.xml_allowed_cidrs_override or configured_cidrs
+        return _normalize_cidrs([*LOCALHOST_CIDRS, *effective])
 
     @property
     def resolved_webauthn_rp_origin(self) -> str:

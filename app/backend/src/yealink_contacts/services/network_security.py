@@ -29,7 +29,10 @@ def parse_ip(value: str | None) -> IPv4Address | IPv6Address | None:
     if candidate in {"localhost", "testclient"}:
         return LOOPBACK_IP
     try:
-        return ip_address(candidate)
+        parsed = ip_address(candidate)
+        if isinstance(parsed, IPv6Address) and parsed.ipv4_mapped is not None:
+            return parsed.ipv4_mapped
+        return parsed
     except ValueError:
         return None
 

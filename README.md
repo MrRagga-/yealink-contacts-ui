@@ -21,7 +21,7 @@ Local admin tool for importing, normalizing, filtering, previewing, and serving 
 ## Highlights
 
 - FastAPI backend with SQLAlchemy 2, Pydantic v2, Alembic, HTTPX, Google People API, and CardDAV over raw WebDAV/CardDAV requests
-- React 18 + TypeScript frontend with forms, previews, source management, sync jobs, and Yealink export guidance
+- React 19 + TypeScript frontend with forms, previews, source management, sync jobs, and Yealink export guidance
 - Preview-first export flow with explainable filtering and number selection
 - Yealink XML endpoints under `/api/yealink/phonebook/{profile}.xml`
 - Per-source merge strategy:
@@ -94,6 +94,7 @@ The GitHub release workflow is configured to:
 
 The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
 If you plan to enforce admin or XML CIDR allowlists behind a reverse proxy, also set `TRUSTED_PROXY_CIDRS` so the backend trusts the proxy hop and evaluates the real client IP from `X-Forwarded-For`.
+Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
 The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests.
 
 ### Option 2: Docker Compose with local image builds
@@ -186,6 +187,8 @@ Bootstrap behavior:
 Important runtime settings:
 
 - `TRUSTED_PROXY_CIDRS`: comma-separated proxy CIDRs that are allowed to supply `X-Forwarded-For`
+- `ADMIN_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted admin allowlist
+- `XML_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted XML allowlist
 - `SESSION_COOKIE_NAME`: optional override for the signed admin session cookie name
 - `SESSION_MAX_AGE_SECONDS`: optional override for session lifetime
 - `WEBAUTHN_RP_ID`: optional WebAuthn relying-party ID

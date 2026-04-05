@@ -5,7 +5,9 @@ export function AccessDeniedPage() {
         <span className="eyebrow">Access denied</span>
         <h1>This IP range is blocked</h1>
         <p className="subtle">
-          The backend rejected this request before login. Update the admin CIDR allowlist or access the UI from an allowed network.
+          The backend rejected this request before login. Localhost is always allowed. If you locked yourself out remotely,
+          set <code>ADMIN_ALLOWED_CIDRS_OVERRIDE</code> in the backend environment, restart the backend, and then fix the
+          saved admin CIDR allowlist.
         </p>
       </section>
     </main>
