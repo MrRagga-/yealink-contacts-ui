@@ -4,17 +4,21 @@ import { useState } from "react";
 
 import { useToast } from "../../hooks/useToast";
 import { api } from "../../lib/api";
+import { hasCompletedBootstrapPasswordChange, markBootstrapPasswordChanged } from "./bootstrapState";
 import { useAuth } from "./AuthProvider";
 
 export function LoginPage() {
   const toast = useToast();
   const { refresh } = useAuth();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [username, setUsername] = useState(() => (hasCompletedBootstrapPasswordChange() ? "" : "admin"));
+  const [password, setPassword] = useState(() => (hasCompletedBootstrapPasswordChange() ? "" : "admin"));
 
   const loginMutation = useMutation({
     mutationFn: api.login,
-    onSuccess: async () => {
+    onSuccess: async (user) => {
+      if (!user.must_change_password) {
+        markBootstrapPasswordChanged();
+      }
       await refresh();
     },
     onError: (error: Error) => toast.push("error", error.message),

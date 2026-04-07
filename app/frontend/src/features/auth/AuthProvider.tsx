@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { AUTH_UNAUTHORIZED_EVENT, ApiError, api } from "../../lib/api";
 import type { AuthenticatedAdmin } from "../../types/api";
+import { markBootstrapPasswordChanged } from "./bootstrapState";
 
 const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
@@ -39,6 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
   }, [clearAuth, queryClient]);
+
+  useEffect(() => {
+    if (authQuery.data && !authQuery.data.must_change_password) {
+      markBootstrapPasswordChanged();
+    }
+  }, [authQuery.data]);
 
   return (
     <AuthContext.Provider

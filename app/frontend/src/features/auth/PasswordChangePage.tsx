@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useToast } from "../../hooks/useToast";
 import { api } from "../../lib/api";
+import { markBootstrapPasswordChanged } from "./bootstrapState";
 import { useAuth } from "./AuthProvider";
 
 export function PasswordChangePage() {
@@ -15,6 +16,7 @@ export function PasswordChangePage() {
   const changeMutation = useMutation({
     mutationFn: api.changePassword,
     onSuccess: async () => {
+      markBootstrapPasswordChanged();
       toast.push("success", "Password changed.");
       setCurrentPassword("");
       setNewPassword("");

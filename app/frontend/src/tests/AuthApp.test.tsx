@@ -9,20 +9,21 @@ import { ToastProvider } from "../hooks/useToast";
 import { I18nProvider } from "../lib/i18n";
 import { SettingsPage } from "../pages/SettingsPage";
 
+const localStorageStore = new Map<string, string>();
+
 function ensureLocalStorage() {
-  const store = new Map<string, string>();
   Object.defineProperty(window, "localStorage", {
     configurable: true,
     value: {
-      getItem: (key: string) => store.get(key) ?? null,
+      getItem: (key: string) => localStorageStore.get(key) ?? null,
       setItem: (key: string, value: string) => {
-        store.set(key, value);
+        localStorageStore.set(key, value);
       },
       removeItem: (key: string) => {
-        store.delete(key);
+        localStorageStore.delete(key);
       },
       clear: () => {
-        store.clear();
+        localStorageStore.clear();
       },
     },
   });
@@ -57,6 +58,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  localStorageStore.clear();
 });
 
 test("app signs in and transitions into the dashboard", async () => {
@@ -117,6 +119,46 @@ test("app signs in and transitions into the dashboard", async () => {
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
   expect(await screen.findByRole("heading", { name: "Synchronization status" })).toBeInTheDocument();
+});
+
+test("login form keeps bootstrap defaults only before the password has been changed", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url.endsWith("/api/auth/me") && method === "GET") {
+      return jsonResponse({ detail: "Authentication required." }, 401);
+    }
+
+    throw new Error(`Unexpected request: ${method} ${url}`);
+  });
+
+  renderWithProviders(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Sign in to Yealink Contacts Sync" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Username")).toHaveValue("admin");
+  expect(screen.getByLabelText("Password")).toHaveValue("admin");
+});
+
+test("login form is blank after the bootstrap password has been changed", async () => {
+  window.localStorage.setItem("yealink-contacts-ui.bootstrap-password-changed", "true");
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url.endsWith("/api/auth/me") && method === "GET") {
+      return jsonResponse({ detail: "Authentication required." }, 401);
+    }
+
+    throw new Error(`Unexpected request: ${method} ${url}`);
+  });
+
+  renderWithProviders(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Sign in to Yealink Contacts Sync" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Username")).toHaveValue("");
+  expect(screen.getByLabelText("Password")).toHaveValue("");
 });
 
 test("app blocks the main UI until the password has been changed", async () => {
