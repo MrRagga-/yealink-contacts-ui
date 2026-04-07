@@ -22,7 +22,7 @@ COPY app/backend/src /srv/app/src
 COPY app/backend/alembic.ini /srv/app/alembic.ini
 COPY app/backend/alembic /srv/app/alembic
 
-RUN uv sync --locked --no-dev --no-editable && chown -R app:app /srv/app
+RUN uv sync --python /usr/local/bin/python --locked --no-dev --no-editable && chown -R app:app /srv/app
 
 LABEL org.opencontainers.image.title="Yealink Contacts Sync Backend" \
       org.opencontainers.image.version=$APP_VERSION \
