@@ -207,11 +207,11 @@ For break-glass administration from a trusted shell, the backend provides a loca
 
 ```bash
 cd app/backend
-uv run python -m yealink_contacts.jobs.admin list-users
-uv run python -m yealink_contacts.jobs.admin reset-password --username admin
-uv run python -m yealink_contacts.jobs.admin create-user --username ops-admin
-uv run python -m yealink_contacts.jobs.admin deactivate-user --username ops-admin
-uv run python -m yealink_contacts.jobs.admin activate-user --username ops-admin
+uv run yealink-contacts-ui-admin list-users
+uv run yealink-contacts-ui-admin reset-password --username admin
+uv run yealink-contacts-ui-admin create-user --username ops-admin
+uv run yealink-contacts-ui-admin deactivate-user --username ops-admin
+uv run yealink-contacts-ui-admin activate-user --username ops-admin
 ```
 
 Notes:
@@ -219,6 +219,7 @@ Notes:
 - password entry is prompted securely, not passed on the command line
 - password resets are audit-logged
 - `reset-password --must-change-password` forces a follow-up password change on next login
+- after `uv sync`, you can also run the installed wrapper directly as `.venv/bin/yealink-contacts-ui-admin ...`
 
 ## Demo data
 
