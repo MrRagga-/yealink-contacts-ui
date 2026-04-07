@@ -65,6 +65,14 @@ def seed_bootstrap_admin(db: Session) -> None:
     db.commit()
 
 
+def list_admin_users(db: Session) -> list[AdminUser]:
+    return list(
+        db.execute(select(AdminUser).options(selectinload(AdminUser.passkeys)).order_by(AdminUser.username.asc()))
+        .scalars()
+        .all()
+    )
+
+
 def get_admin_user_by_id(db: Session, admin_user_id: str) -> AdminUser | None:
     return db.execute(
         select(AdminUser)
@@ -78,6 +86,12 @@ def get_admin_user_by_username(db: Session, username: str) -> AdminUser | None:
         select(AdminUser)
         .options(selectinload(AdminUser.passkeys))
         .where(AdminUser.username == username, AdminUser.is_active.is_(True))
+    ).scalar_one_or_none()
+
+
+def get_admin_user_by_username_any_state(db: Session, username: str) -> AdminUser | None:
+    return db.execute(
+        select(AdminUser).options(selectinload(AdminUser.passkeys)).where(AdminUser.username == username)
     ).scalar_one_or_none()
 
 
@@ -134,6 +148,76 @@ def change_password(db: Session, admin_user: AdminUser, current_password: str, n
         "admin_user",
         admin_user.id,
         "password_changed",
+        {"username": admin_user.username},
+    )
+    db.commit()
+    db.refresh(admin_user)
+    return admin_user
+
+
+def set_admin_password(
+    db: Session,
+    admin_user: AdminUser,
+    new_password: str,
+    *,
+    must_change_password: bool = False,
+) -> AdminUser:
+    admin_user.password_hash = password_hash.hash(new_password)
+    admin_user.must_change_password = must_change_password
+    write_audit_log(
+        db,
+        "admin_user",
+        admin_user.id,
+        "password_reset",
+        {
+            "username": admin_user.username,
+            "must_change_password": must_change_password,
+        },
+    )
+    db.commit()
+    db.refresh(admin_user)
+    return admin_user
+
+
+def create_admin_user(
+    db: Session,
+    username: str,
+    password: str,
+    *,
+    must_change_password: bool = True,
+    is_active: bool = True,
+) -> AdminUser:
+    admin_user = AdminUser(
+        username=username,
+        password_hash=password_hash.hash(password),
+        must_change_password=must_change_password,
+        is_active=is_active,
+    )
+    db.add(admin_user)
+    db.flush()
+    write_audit_log(
+        db,
+        "admin_user",
+        admin_user.id,
+        "created",
+        {
+            "username": username,
+            "must_change_password": must_change_password,
+            "is_active": is_active,
+        },
+    )
+    db.commit()
+    db.refresh(admin_user)
+    return admin_user
+
+
+def set_admin_active_state(db: Session, admin_user: AdminUser, *, is_active: bool) -> AdminUser:
+    admin_user.is_active = is_active
+    write_audit_log(
+        db,
+        "admin_user",
+        admin_user.id,
+        "activated" if is_active else "deactivated",
         {"username": admin_user.username},
     )
     db.commit()

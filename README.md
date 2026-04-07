@@ -201,6 +201,25 @@ Defaults:
 - `WEBAUTHN_RP_NAME` falls back to `APP_NAME`
 - `WEBAUTHN_RP_ID` falls back to the hostname part of `FRONTEND_ORIGIN`
 
+### Local admin CLI
+
+For break-glass administration from a trusted shell, the backend provides a local-only CLI:
+
+```bash
+cd app/backend
+uv run python -m yealink_contacts.jobs.admin list-users
+uv run python -m yealink_contacts.jobs.admin reset-password --username admin
+uv run python -m yealink_contacts.jobs.admin create-user --username ops-admin
+uv run python -m yealink_contacts.jobs.admin deactivate-user --username ops-admin
+uv run python -m yealink_contacts.jobs.admin activate-user --username ops-admin
+```
+
+Notes:
+
+- password entry is prompted securely, not passed on the command line
+- password resets are audit-logged
+- `reset-password --must-change-password` forces a follow-up password change on next login
+
 ## Demo data
 
 Create demo data:
