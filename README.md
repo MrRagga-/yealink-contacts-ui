@@ -289,8 +289,8 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.5
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.5
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.6
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.6
 ```
 
 Compose files:

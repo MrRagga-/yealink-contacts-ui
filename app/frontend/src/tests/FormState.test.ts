@@ -176,7 +176,7 @@ describe("settings form state helpers", () => {
 
   test("hydrates settings defaults from app settings", () => {
     const defaults = getSettingsFormValues({
-      app_version: "0.2.5",
+      app_version: "0.2.6",
       release_model: "Semantic Versioning via Git tags",
       default_new_source_type: "carddav",
       default_new_source_merge_strategy: "upsert_only",

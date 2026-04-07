@@ -20,5 +20,5 @@ def get_app_version() -> str:
         if pyproject_path.exists():
             with pyproject_path.open("rb") as handle:
                 payload = tomllib.load(handle)
-            return str(payload.get("project", {}).get("version", "0.2.5"))
-    return "0.2.5"
+            return str(payload.get("project", {}).get("version", "0.2.6"))
+    return "0.2.6"
