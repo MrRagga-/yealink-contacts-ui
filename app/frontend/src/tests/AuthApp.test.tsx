@@ -161,6 +161,68 @@ test("login form is blank after the bootstrap password has been changed", async 
   expect(screen.getByLabelText("Password")).toHaveValue("");
 });
 
+test("manual login still works after bootstrap defaults are cleared", async () => {
+  window.localStorage.setItem("yealink-contacts-ui.bootstrap-password-changed", "true");
+
+  let meCount = 0;
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url.endsWith("/api/auth/me") && method === "GET") {
+      meCount += 1;
+      if (meCount === 1) {
+        return jsonResponse({ detail: "Authentication required." }, 401);
+      }
+      return jsonResponse({
+        id: "admin-1",
+        username: "admin",
+        must_change_password: false,
+        is_active: true,
+        passkey_count: 0,
+      });
+    }
+
+    if (url.endsWith("/api/auth/login") && method === "POST") {
+      return jsonResponse({
+        id: "admin-1",
+        username: "admin",
+        must_change_password: false,
+        is_active: true,
+        passkey_count: 0,
+      });
+    }
+
+    if (url.endsWith("/api/dashboard") && method === "GET") {
+      return jsonResponse({
+        source_count: 1,
+        active_source_count: 1,
+        export_profile_count: 1,
+        contact_count: 10,
+        exported_contact_count: 10,
+        last_sync: null,
+        xml_endpoints: [],
+        recent_errors: [],
+      });
+    }
+
+    throw new Error(`Unexpected request: ${method} ${url}`);
+  });
+
+  renderWithProviders(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Sign in to Yealink Contacts Sync" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Username")).toHaveValue("");
+  expect(screen.getByLabelText("Password")).toHaveValue("");
+
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText("Username"), "admin");
+  await user.type(screen.getByLabelText("Password"), "new-password");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+  expect(await screen.findByRole("heading", { name: "Synchronization status" })).toBeInTheDocument();
+});
+
 test("app blocks the main UI until the password has been changed", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = typeof input === "string" ? input : input.toString();
