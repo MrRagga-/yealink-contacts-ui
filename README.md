@@ -95,7 +95,7 @@ The GitHub release workflow is configured to:
 The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
 If you plan to enforce admin or XML CIDR allowlists behind a reverse proxy, also set `TRUSTED_PROXY_CIDRS` so the backend trusts the proxy hop and evaluates the real client IP from `X-Forwarded-For`.
 Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
-The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests.
+The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests. For published images, do not override the backend command with `uv run ...`; use `alembic upgrade head && exec python -m uvicorn ...` if you must customize the runtime command.
 
 ### Option 2: Docker Compose with local image builds
 
@@ -269,14 +269,31 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-v0.2.5
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-v0.2.5
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.5
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.5
 ```
 
 Compose files:
 
 - `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default
 - `docker-compose.dev.yml` builds the images locally from this repository
+
+If you maintain your own stack file, keep these runtime requirements in place:
+
+- `frontend` must set `BACKEND_UPSTREAM=backend:8000`
+- `backend` should expose a healthcheck that probes `http://127.0.0.1:8000/healthz`
+- `frontend` should depend on a **healthy** backend, not just a started container
+- published backend images should run:
+
+```bash
+/bin/sh -c "alembic upgrade head && exec python -m uvicorn yealink_contacts.main:app --host 0.0.0.0 --port 8000"
+```
+
+and not:
+
+```bash
+uv run alembic upgrade head && uv run uvicorn ...
+```
 
 Required GitHub secrets for Docker Hub publishing:
 

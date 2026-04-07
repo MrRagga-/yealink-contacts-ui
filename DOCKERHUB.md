@@ -8,14 +8,16 @@ This Docker Hub repository publishes two images through tag prefixes:
 
 - `docker.io/mrragga/yealink-contacts-ui:backend-latest`
 - `docker.io/mrragga/yealink-contacts-ui:frontend-latest`
-- `docker.io/mrragga/yealink-contacts-ui:backend-vX.Y.Z`
-- `docker.io/mrragga/yealink-contacts-ui:frontend-vX.Y.Z`
+- `docker.io/mrragga/yealink-contacts-ui:backend-X.Y.Z`
+- `docker.io/mrragga/yealink-contacts-ui:frontend-X.Y.Z`
 
 Pull examples:
 
 ```bash
 docker pull docker.io/mrragga/yealink-contacts-ui:backend-latest
 docker pull docker.io/mrragga/yealink-contacts-ui:frontend-latest
+docker pull docker.io/mrragga/yealink-contacts-ui:backend-0.2.5
+docker pull docker.io/mrragga/yealink-contacts-ui:frontend-0.2.5
 ```
 
 ## What It Does
@@ -31,6 +33,8 @@ docker pull docker.io/mrragga/yealink-contacts-ui:frontend-latest
 - The backend image serves the FastAPI API and Yealink XML endpoints.
 - The frontend image serves the React admin UI through Nginx.
 - The standard local deployment is a multi-container setup with PostgreSQL or SQLite for development.
+- The frontend image now expects a backend upstream at runtime and should be given `BACKEND_UPSTREAM=backend:8000` in Compose deployments.
+- The published backend image already contains its virtual environment. If you override the backend command, use `alembic` and `python -m uvicorn` directly instead of `uv run ...`.
 
 Typical endpoints in a deployment:
 
@@ -52,6 +56,25 @@ Use `docker-compose.dev.yml` when you want to build the backend and frontend ima
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.dev.yml up --build
+```
+
+If you maintain your own Compose stack, keep these requirements:
+
+- `backend` should have a healthcheck against `http://127.0.0.1:8000/healthz`
+- `frontend` should set `BACKEND_UPSTREAM=backend:8000`
+- `frontend` should depend on a **healthy** backend
+- published backend containers should use:
+
+```yaml
+command: >
+  /bin/sh -c "alembic upgrade head && exec python -m uvicorn yealink_contacts.main:app --host 0.0.0.0 --port 8000"
+```
+
+and not:
+
+```yaml
+command: >
+  /bin/sh -c "uv run alembic upgrade head && uv run uvicorn yealink_contacts.main:app --host 0.0.0.0 --port 8000"
 ```
 
 ## Persistent Data
