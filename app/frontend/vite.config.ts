@@ -1,14 +1,31 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import type { ProxyOptions } from "vite";
 
-function withForwardedClientIp(target: string) {
+type ProxyRequest = {
+  setHeader: (name: string, value: string) => void;
+};
+
+type ProxyAwareRequest = {
+  headers: Record<string, string | string[] | undefined>;
+  socket: {
+    remoteAddress?: string;
+  };
+};
+
+type ProxyWithEvents = {
+  on: (
+    event: "proxyReq",
+    listener: (proxyReq: ProxyRequest, req: ProxyAwareRequest) => void,
+  ) => void;
+};
+
+function withForwardedClientIp(target: string): ProxyOptions {
   return {
     target,
     changeOrigin: true,
-    configure: (proxy: {
-      on: (event: "proxyReq", listener: (proxyReq: { getHeader: (name: string) => unknown; setHeader: (name: string, value: string) => void }, req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }) => void) => void;
-    }) => {
-      proxy.on("proxyReq", (proxyReq, req) => {
+    configure: (proxy) => {
+      (proxy as unknown as ProxyWithEvents).on("proxyReq", (proxyReq, req) => {
         const remoteAddress = req.socket.remoteAddress;
         if (!remoteAddress) {
           return;
