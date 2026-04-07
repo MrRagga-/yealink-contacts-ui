@@ -1,6 +1,6 @@
 FROM node:25-alpine AS build
 
-ARG APP_VERSION=0.2.4
+ARG APP_VERSION=0.2.5
 WORKDIR /srv/app
 
 COPY app/frontend/package.json app/frontend/package-lock.json ./
@@ -11,7 +11,7 @@ RUN npm run build
 
 FROM nginx:1.29-alpine
 
-ARG APP_VERSION=0.2.4
+ARG APP_VERSION=0.2.5
 ENV BACKEND_UPSTREAM=host.docker.internal:8000 \
     NGINX_RESOLVER=127.0.0.11
 
