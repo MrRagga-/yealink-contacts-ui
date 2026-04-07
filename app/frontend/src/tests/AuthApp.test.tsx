@@ -216,7 +216,7 @@ test("settings page renders the security section and registered passkeys", async
 
     if (url.endsWith("/api/settings") && method === "GET") {
       return jsonResponse({
-        app_version: "0.2.3",
+        app_version: "0.2.4",
         release_model: "Semantic Versioning via Git tags",
         default_new_source_type: "carddav",
         default_new_source_merge_strategy: "upsert_only",

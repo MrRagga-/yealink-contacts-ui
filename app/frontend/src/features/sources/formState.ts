@@ -28,7 +28,8 @@ export const sourceSchema = z.object({
   token_uri: z.string().optional(),
 });
 
-export type SourceFormValues = z.infer<typeof sourceSchema>;
+export type SourceFormInput = z.input<typeof sourceSchema>;
+export type SourceFormValues = z.output<typeof sourceSchema>;
 
 export function getSourceFormDefaults(
   source?: Source,

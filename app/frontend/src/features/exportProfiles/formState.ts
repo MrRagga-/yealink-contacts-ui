@@ -23,7 +23,8 @@ export const profileSchema = z.object({
   suffix: z.string().default(""),
 });
 
-export type ProfileFormValues = z.infer<typeof profileSchema>;
+export type ProfileFormInput = z.input<typeof profileSchema>;
+export type ProfileFormValues = z.output<typeof profileSchema>;
 
 export function getProfileFormDefaults(
   profile?: ExportProfile,

@@ -7,6 +7,7 @@ import {
   buildSourcePayload,
   getSourceFormDefaults,
   sourceSchema,
+  type SourceFormInput,
   type SourceFormValues,
 } from "./formState";
 
@@ -133,7 +134,7 @@ export function SourceForm({
   onSubmit: (payload: SourceCreatePayload) => void;
   submitLabel: string;
 }) {
-  const form = useForm<SourceFormValues>({
+  const form = useForm<SourceFormInput, unknown, SourceFormValues>({
     resolver: zodResolver(sourceSchema),
     defaultValues: getSourceFormDefaults(source, defaults),
   });

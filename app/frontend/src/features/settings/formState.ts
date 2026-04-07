@@ -17,7 +17,8 @@ export const settingsSchema = z.object({
   xml_allowed_cidrs: z.string().default("0.0.0.0/0\n::/0"),
 });
 
-export type SettingsFormValues = z.infer<typeof settingsSchema>;
+export type SettingsFormInput = z.input<typeof settingsSchema>;
+export type SettingsFormValues = z.output<typeof settingsSchema>;
 
 function toCsv(values: string[]) {
   return values.join(",");

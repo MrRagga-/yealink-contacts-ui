@@ -7,6 +7,7 @@ import {
   buildExportProfilePayload,
   getProfileFormDefaults,
   profileSchema,
+  type ProfileFormInput,
   type ProfileFormValues,
 } from "./formState";
 
@@ -21,7 +22,7 @@ export function ExportProfileForm({
   sourceIds: string[];
   onSubmit: (payload: ExportProfilePayload) => void;
 }) {
-  const form = useForm<ProfileFormValues>({
+  const form = useForm<ProfileFormInput, unknown, ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: getProfileFormDefaults(profile, defaults),
   });

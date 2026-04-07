@@ -8,6 +8,7 @@ import {
   buildSettingsPayload,
   getSettingsFormValues,
   settingsSchema,
+  type SettingsFormInput,
   type SettingsFormValues,
 } from "../features/settings/formState";
 import { useSettingsPage } from "../features/settings/useSettingsPage";
@@ -25,7 +26,7 @@ export function SettingsPage() {
     updateMutation,
     user,
   } = useSettingsPage();
-  const form = useForm<SettingsFormValues>({
+  const form = useForm<SettingsFormInput, unknown, SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: getSettingsFormValues(),
   });
