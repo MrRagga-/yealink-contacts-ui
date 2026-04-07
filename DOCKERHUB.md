@@ -16,8 +16,8 @@ Pull examples:
 ```bash
 docker pull docker.io/mrragga/yealink-contacts-ui:backend-latest
 docker pull docker.io/mrragga/yealink-contacts-ui:frontend-latest
-docker pull docker.io/mrragga/yealink-contacts-ui:backend-0.2.5
-docker pull docker.io/mrragga/yealink-contacts-ui:frontend-0.2.5
+docker pull docker.io/mrragga/yealink-contacts-ui:backend-0.2.6
+docker pull docker.io/mrragga/yealink-contacts-ui:frontend-0.2.6
 ```
 
 ## What It Does
