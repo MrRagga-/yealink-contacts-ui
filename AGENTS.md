@@ -53,6 +53,7 @@ npm run dev -- --host 0.0.0.0 --port 5173
 - Do not introduce Python package managers other than `uv`
 - Do not introduce alternative Python type checkers in parallel with `ty`
 - Keep Docker Hub as the only automated image registry unless the release model is explicitly changed
+- Never use `--no-verify` for `git commit` or `git push`; always resolve failing pre-commit/pre-push checks first
 
 ## Verification
 

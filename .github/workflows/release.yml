@@ -9,8 +9,19 @@ permissions:
   contents: write
 
 jobs:
+  verify-release-stack:
+    name: Verify Docker stack before publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Verify Docker stack
+        run: ./scripts/verify-docker-stack.sh
+
   publish-images:
     name: Publish ${{ matrix.component }} image
+    needs: verify-release-stack
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

@@ -25,6 +25,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     command: >
@@ -32,8 +43,11 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:-docker.io/mrragga/yealink-contacts-ui:frontend-latest}
+    environment:
+      BACKEND_UPSTREAM: backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:80"
 

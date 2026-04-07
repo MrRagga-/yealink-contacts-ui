@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="yealink-prepush-${USER:-user}-$$"
 BACKEND_IMAGE="yealink-prepush-backend:${USER:-user}-$RANDOM"
 FRONTEND_IMAGE="yealink-prepush-frontend:${USER:-user}-$RANDOM"
+STANDALONE_FRONTEND="yealink-prepush-frontend-standalone-${USER:-user}-$$"
 TEMP_ENV_CREATED=0
 
 if command -v python3 >/dev/null 2>&1; then
@@ -51,6 +52,8 @@ cleanup() {
     FRONTEND_PORT="${FRONTEND_PORT:-5173}" \
     docker compose -p "$PROJECT" down -v --remove-orphans
   ) >/dev/null 2>&1 || true
+
+  docker rm -f "$STANDALONE_FRONTEND" >/dev/null 2>&1 || true
 
   if [ "$TEMP_ENV_CREATED" -eq 1 ]; then
     rm -f "$ROOT_DIR/.env"
@@ -124,6 +127,18 @@ docker build -f app/backend/Dockerfile -t "$BACKEND_IMAGE" .
 
 echo "Building frontend image..."
 docker build -f app/frontend/Dockerfile -t "$FRONTEND_IMAGE" .
+
+echo "Starting standalone frontend image to verify nginx boots..."
+docker run -d --name "$STANDALONE_FRONTEND" -e BACKEND_UPSTREAM=127.0.0.1:8000 -p 127.0.0.1::80 "$FRONTEND_IMAGE" >/dev/null
+sleep 2
+if [ "$(docker inspect -f '{{.State.Running}}' "$STANDALONE_FRONTEND")" != "true" ]; then
+  echo "Standalone frontend container exited unexpectedly." >&2
+  docker logs "$STANDALONE_FRONTEND" >&2 || true
+  exit 1
+fi
+FRONTEND_STANDALONE_PORT="$(docker port "$STANDALONE_FRONTEND" 80/tcp | sed 's/.*://')"
+wait_for_url "frontend-standalone" "http://127.0.0.1:$FRONTEND_STANDALONE_PORT/frontend-healthz"
+docker rm -f "$STANDALONE_FRONTEND" >/dev/null
 
 echo "Starting smoke-test stack on ports db=$DB_PORT backend=$BACKEND_PORT frontend=$FRONTEND_PORT..."
 BACKEND_IMAGE="$BACKEND_IMAGE" \

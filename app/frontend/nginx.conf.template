@@ -5,8 +5,16 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
+  resolver ${NGINX_RESOLVER} ipv6=off valid=30s;
+  set $backend_upstream ${BACKEND_UPSTREAM};
+
+  location = /frontend-healthz {
+    add_header Content-Type text/plain;
+    return 200 "ok";
+  }
+
   location /api/ {
-    proxy_pass http://backend:8000/api/;
+    proxy_pass http://$backend_upstream/api/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -15,14 +23,14 @@ server {
   }
 
   location = /healthz {
-    proxy_pass http://backend:8000/healthz;
+    proxy_pass http://$backend_upstream/healthz;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
   }
 
   location = /_auth/admin {
     internal;
-    proxy_pass http://backend:8000/api/auth/access/admin;
+    proxy_pass http://$backend_upstream/api/auth/access/admin;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
