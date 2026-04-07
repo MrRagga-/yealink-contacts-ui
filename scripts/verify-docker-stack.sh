@@ -152,4 +152,31 @@ wait_for_url "backend" "http://127.0.0.1:$BACKEND_PORT/healthz"
 wait_for_url "frontend-proxy" "http://127.0.0.1:$FRONTEND_PORT/healthz"
 wait_for_url "frontend-index" "http://127.0.0.1:$FRONTEND_PORT/"
 
+echo "Verifying frontend API proxy preserves auth routes..."
+"$PYTHON_BIN" - "$FRONTEND_PORT" <<'PY'
+import json
+import sys
+import urllib.error
+import urllib.request
+
+port = sys.argv[1]
+request = urllib.request.Request(
+    f"http://127.0.0.1:{port}/api/auth/login",
+    data=json.dumps({"username": "nope", "password": "wrong"}).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+
+try:
+    with urllib.request.urlopen(request, timeout=5) as response:
+        body = response.read().decode("utf-8", "replace")
+        print(f"frontend-login-proxy: unexpected success {response.status} {body}", file=sys.stderr)
+        sys.exit(1)
+except urllib.error.HTTPError as exc:
+    payload = exc.read().decode("utf-8", "replace")
+    print(f"frontend-login-proxy: {exc.code} {payload}")
+    if exc.code != 401 or "Invalid username or password." not in payload:
+        sys.exit(1)
+PY
+
 echo "Docker smoke check passed."
