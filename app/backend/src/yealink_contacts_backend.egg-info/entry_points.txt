@@ -1,2 +1,0 @@
-[console_scripts]
-yealink-contacts-ui-admin = yealink_contacts.jobs.admin:main
