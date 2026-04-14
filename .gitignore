@@ -27,3 +27,4 @@ app/frontend/dist/
 app/backend/alembic/versions/__pycache__/
 *.db
 .omx/
+*.egg-info/
