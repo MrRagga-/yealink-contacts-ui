@@ -1,4 +1,4 @@
-FROM node:25-alpine AS build
+FROM node:26-alpine AS build
 
 ARG APP_VERSION=0.2.6
 WORKDIR /srv/app
