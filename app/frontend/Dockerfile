@@ -1,4 +1,4 @@
-FROM node:25-alpine AS build
+FROM node:26-alpine AS build
 
 ARG APP_VERSION=0.2.6
 WORKDIR /srv/app
@@ -9,7 +9,7 @@ RUN npm ci
 COPY app/frontend ./
 RUN npm run build
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 
 ARG APP_VERSION=0.2.6
 ENV BACKEND_UPSTREAM=host.docker.internal:8000 \
