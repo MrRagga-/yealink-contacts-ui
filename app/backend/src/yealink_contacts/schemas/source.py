@@ -22,6 +22,7 @@ class SourceCredentialPayload(BaseModel):
     access_token: str | None = None
     token_uri: str | None = None
     account_email: str | None = None
+    oauth_scopes: list[str] | None = None
 
 
 class SourceAddressbookBase(BaseModel):

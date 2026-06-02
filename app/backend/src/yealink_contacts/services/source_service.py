@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from yealink_contacts.adapters.base import SourceAdapter
 from yealink_contacts.adapters.sources.carddav import CardDAVAdapter, CardDAVConfig
 from yealink_contacts.adapters.sources.google import GoogleAdapterConfig, GoogleContactsAdapter
+from yealink_contacts.adapters.sources.google.oauth import GOOGLE_OAUTH_SCOPES, resolve_google_oauth_scopes
 from yealink_contacts.core.security import cipher
 from yealink_contacts.models.source import Source, SourceAddressbook, SourceCredential, SourceType
 from yealink_contacts.schemas.source import (
@@ -173,6 +174,7 @@ def build_adapter(source: Source) -> SourceAdapter:
                 token_uri=credential.token_uri,
                 access_token=credential.access_token,
                 account_email=credential.account_email,
+                oauth_scopes=credential.oauth_scopes,
             )
         )
     raise ValueError(f"Unsupported source type: {source.type}")
@@ -196,12 +198,11 @@ def start_google_oauth(db: Session, source: Source) -> GoogleAuthStartResponse:
                     "redirect_uris": [redirect_uri],
                 }
             },
-            scopes=["https://www.googleapis.com/auth/contacts.readonly", "openid", "email"],
+            scopes=GOOGLE_OAUTH_SCOPES,
             redirect_uri=redirect_uri,
         )
         authorization_url, _ = flow.authorization_url(
             access_type="offline",
-            include_granted_scopes="true",
             prompt="consent",
             state=source.id,
         )
@@ -229,13 +230,14 @@ def complete_google_oauth(db: Session, source: Source, callback_url: str) -> Sou
                     "redirect_uris": [redirect_uri],
                 }
             },
-            scopes=["https://www.googleapis.com/auth/contacts.readonly", "openid", "email"],
+            scopes=GOOGLE_OAUTH_SCOPES,
             redirect_uri=redirect_uri,
         )
         if payload.google_code_verifier:
             flow.code_verifier = payload.google_code_verifier
         flow.fetch_token(authorization_response=callback_url)
         credentials = flow.credentials
+    payload.oauth_scopes = resolve_google_oauth_scopes(list(credentials.scopes or []))
     payload.refresh_token = credentials.refresh_token or payload.refresh_token
     payload.access_token = credentials.token
     payload.token_uri = credentials.token_uri or token_uri
@@ -275,10 +277,8 @@ def _replace_addressbooks(source: Source, payload: list[SourceAddressbookBase]) 
 def _oauth_transport_context(redirect_uri: str):
     allow_insecure = redirect_uri.startswith("http://")
     previous_value = os.environ.get("OAUTHLIB_INSECURE_TRANSPORT")
-    previous_relax_scope = os.environ.get("OAUTHLIB_RELAX_TOKEN_SCOPE")
     if allow_insecure:
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
         yield
     finally:
@@ -287,7 +287,3 @@ def _oauth_transport_context(redirect_uri: str):
                 os.environ.pop("OAUTHLIB_INSECURE_TRANSPORT", None)
             else:
                 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = previous_value
-        if previous_relax_scope is None:
-            os.environ.pop("OAUTHLIB_RELAX_TOKEN_SCOPE", None)
-        else:
-            os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = previous_relax_scope

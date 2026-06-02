@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { QueryStatePanel } from "../components/QueryStatePanel";
 import { SectionCard } from "../components/SectionCard";
+import { formatSourceErrorMessage } from "../features/sources/formatSourceErrorMessage";
 import { SourceForm } from "../features/sources/SourceForm";
 import { useSourcesPage } from "../features/sources/useSourcesPage";
 
@@ -105,10 +106,12 @@ export function SourcesPage() {
                   ) : null}
                   {syncFeedback[source.id] ? (
                     <div className={syncFeedback[source.id].tone === "error" ? "error-box" : "info-box"}>
-                      {syncFeedback[source.id].message}
+                      {formatSourceErrorMessage(syncFeedback[source.id].message)}
                     </div>
                   ) : null}
-                  {source.last_error ? <div className="error-box">{source.last_error}</div> : null}
+                  {source.last_error ? (
+                    <div className="error-box">{formatSourceErrorMessage(source.last_error)}</div>
+                  ) : null}
                   <div className="button-row">
                     <button className="ghost-button" onClick={() => setEditing(source)}>Edit</button>
                     <button className="ghost-button" onClick={() => testMutation.mutate(source.id)}>Test connection</button>

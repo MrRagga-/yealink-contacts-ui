@@ -246,8 +246,9 @@ uv run python -m yealink_contacts.jobs.seed_demo
 5. Register the exact same redirect URI in Google, for example:
    - `http://localhost:8000/api/sources/oauth/google/callback`
 6. In the source list, click `Google OAuth`
-7. Complete the consent flow
-8. Run `Start sync`
+7. Complete the consent flow and approve contacts access
+8. If connection testing fails with an insufficient-scope error, revoke the app under your Google account security settings and run `Google OAuth` again
+9. Run `Start sync`
 
 ### CardDAV and Nextcloud
 

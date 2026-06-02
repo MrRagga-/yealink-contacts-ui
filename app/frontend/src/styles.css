@@ -253,7 +253,11 @@ select:focus-visible {
 }
 
 .two-column-wide {
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+.two-column > .section-card {
+  min-width: 0;
 }
 
 .form-grid {
@@ -552,6 +556,7 @@ button:disabled {
   border-radius: 14px;
   background: var(--danger-soft);
   color: var(--danger);
+  overflow-wrap: anywhere;
 }
 
 .warning-box {
@@ -567,6 +572,7 @@ button:disabled {
   border-radius: 14px;
   background: rgba(0, 92, 83, 0.08);
   color: var(--accent);
+  overflow-wrap: anywhere;
 }
 
 .sync-progress-box {

@@ -13,6 +13,7 @@ from yealink_contacts.adapters.base import (
     CanonicalPhoneInput,
     SourceAdapter,
 )
+from yealink_contacts.adapters.sources.google.oauth import GOOGLE_OAUTH_SCOPES
 PEOPLE_FIELDS = ",".join(
     [
         "names",
@@ -39,6 +40,7 @@ class GoogleAdapterConfig:
     token_uri: str | None = None
     access_token: str | None = None
     account_email: str | None = None
+    oauth_scopes: list[str] | None = None
 
 
 class GoogleContactsAdapter(SourceAdapter):
@@ -57,6 +59,13 @@ class GoogleContactsAdapter(SourceAdapter):
                 .execute()
             )
         except Exception as exc:
+            message = str(exc)
+            if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in message:
+                return (
+                    False,
+                    "Google connection failed: contacts read access is missing from the stored token. "
+                    "Revoke this app under your Google account security settings, then run Google OAuth again.",
+                )
             return False, f"Google connection failed: {exc}"
         return True, f"Loaded {len(response.get('connections', []))} contact sample(s)."
 
@@ -109,13 +118,14 @@ class GoogleContactsAdapter(SourceAdapter):
         }
 
     def _service(self):
+        scopes = self.config.oauth_scopes or GOOGLE_OAUTH_SCOPES
         credentials = Credentials(
             token=self.config.access_token,
             refresh_token=self.config.refresh_token,
             token_uri=self.config.token_uri or "https://oauth2.googleapis.com/token",
             client_id=self.config.client_id,
             client_secret=self.config.client_secret,
-            scopes=["https://www.googleapis.com/auth/contacts.readonly"],
+            scopes=scopes,
         )
         return build("people", "v1", credentials=credentials, cache_discovery=False)
 
