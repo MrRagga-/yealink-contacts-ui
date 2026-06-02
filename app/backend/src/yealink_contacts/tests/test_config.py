@@ -64,3 +64,18 @@ def test_allowed_cidr_overrides_include_localhost_and_replace_persisted_lists():
 
     assert settings.resolve_admin_allowed_cidrs(["10.0.0.0/8"]) == [*LOCALHOST_CIDRS, "203.0.113.0/24"]
     assert settings.resolve_xml_allowed_cidrs(["10.0.0.0/8"]) == [*LOCALHOST_CIDRS, "198.51.100.0/24"]
+
+
+def test_trusted_proxy_cidrs_accepts_comma_separated_env_values():
+    settings = Settings.model_validate(
+        {
+            "APP_ENV": "production",
+            "DATABASE_URL": "sqlite:///./yealink_contacts.db",
+            "APP_SECRET_KEY": "test-secret",
+            "ENCRYPTION_KEY": "S4aexYnjREGeQkSQIlPCXSQLgXUhY_GfJ1i1n1a34zg=",
+            "TRUSTED_PROXY_CIDRS": "172.29.24.4/32,192.168.23.42/32",
+        }
+    )
+
+    assert settings.trusted_proxy_cidrs == ["172.29.24.4/32", "192.168.23.42/32"]
+    assert settings.resolved_trusted_proxy_cidrs == ["172.29.24.4/32", "192.168.23.42/32"]

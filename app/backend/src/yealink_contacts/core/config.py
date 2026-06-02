@@ -3,10 +3,11 @@ from __future__ import annotations
 from functools import lru_cache
 from ipaddress import ip_network
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 DOCKER_ENV_MARKER = Path("/.dockerenv")
@@ -37,9 +38,13 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     xml_public_base_url: str | None = Field(default=None, alias="XML_PUBLIC_BASE_URL")
     sync_http_timeout: int = Field(default=20, alias="SYNC_HTTP_TIMEOUT")
-    trusted_proxy_cidrs: list[str] = Field(default_factory=list, alias="TRUSTED_PROXY_CIDRS")
-    admin_allowed_cidrs_override: list[str] = Field(default_factory=list, alias="ADMIN_ALLOWED_CIDRS_OVERRIDE")
-    xml_allowed_cidrs_override: list[str] = Field(default_factory=list, alias="XML_ALLOWED_CIDRS_OVERRIDE")
+    trusted_proxy_cidrs: Annotated[list[str], NoDecode] = Field(default_factory=list, alias="TRUSTED_PROXY_CIDRS")
+    admin_allowed_cidrs_override: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, alias="ADMIN_ALLOWED_CIDRS_OVERRIDE"
+    )
+    xml_allowed_cidrs_override: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, alias="XML_ALLOWED_CIDRS_OVERRIDE"
+    )
     session_cookie_name: str = Field(default="yealink_admin_session", alias="SESSION_COOKIE_NAME")
     session_max_age_seconds: int = Field(default=60 * 60 * 12, alias="SESSION_MAX_AGE_SECONDS")
     webauthn_rp_id: str | None = Field(default=None, alias="WEBAUTHN_RP_ID")
