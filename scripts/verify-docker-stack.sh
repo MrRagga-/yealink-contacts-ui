@@ -27,8 +27,6 @@ cleanup() {
       cd "$ROOT_DIR"
       BACKEND_IMAGE="$BACKEND_IMAGE" \
       FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-      DB_PORT="${DB_PORT:-5432}" \
-      BACKEND_PORT="${BACKEND_PORT:-8000}" \
       FRONTEND_PORT="${FRONTEND_PORT:-5173}" \
       docker compose -p "$PROJECT" ps -a
     ) >&2 || true
@@ -36,8 +34,6 @@ cleanup() {
       cd "$ROOT_DIR"
       BACKEND_IMAGE="$BACKEND_IMAGE" \
       FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-      DB_PORT="${DB_PORT:-5432}" \
-      BACKEND_PORT="${BACKEND_PORT:-8000}" \
       FRONTEND_PORT="${FRONTEND_PORT:-5173}" \
       docker compose -p "$PROJECT" logs --tail=200
     ) >&2 || true
@@ -47,8 +43,6 @@ cleanup() {
     cd "$ROOT_DIR"
     BACKEND_IMAGE="$BACKEND_IMAGE" \
     FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-    DB_PORT="${DB_PORT:-5432}" \
-    BACKEND_PORT="${BACKEND_PORT:-8000}" \
     FRONTEND_PORT="${FRONTEND_PORT:-5173}" \
     docker compose -p "$PROJECT" down -v --remove-orphans
   ) >/dev/null 2>&1 || true
@@ -118,8 +112,6 @@ if [ ! -f .env ]; then
   echo "No .env found. Created a temporary .env from .env.example for the smoke check."
 fi
 
-DB_PORT="$(pick_port)"
-BACKEND_PORT="$(pick_port)"
 FRONTEND_PORT="$(pick_port)"
 
 echo "Building backend image..."
@@ -140,17 +132,14 @@ FRONTEND_STANDALONE_PORT="$(docker port "$STANDALONE_FRONTEND" 80/tcp | sed 's/.
 wait_for_url "frontend-standalone" "http://127.0.0.1:$FRONTEND_STANDALONE_PORT/frontend-healthz"
 docker rm -f "$STANDALONE_FRONTEND" >/dev/null
 
-echo "Starting smoke-test stack on ports db=$DB_PORT backend=$BACKEND_PORT frontend=$FRONTEND_PORT..."
+echo "Starting smoke-test stack on frontend port $FRONTEND_PORT..."
 BACKEND_IMAGE="$BACKEND_IMAGE" \
 FRONTEND_IMAGE="$FRONTEND_IMAGE" \
-DB_PORT="$DB_PORT" \
-BACKEND_PORT="$BACKEND_PORT" \
 FRONTEND_PORT="$FRONTEND_PORT" \
 docker compose -p "$PROJECT" up -d
 
-wait_for_url "backend" "http://127.0.0.1:$BACKEND_PORT/healthz"
 wait_for_url "frontend-proxy" "http://127.0.0.1:$FRONTEND_PORT/healthz"
-wait_for_url "frontend-index" "http://127.0.0.1:$FRONTEND_PORT/"
+wait_for_url "frontend-healthz" "http://127.0.0.1:$FRONTEND_PORT/frontend-healthz"
 
 echo "Verifying frontend API proxy preserves auth routes..."
 "$PYTHON_BIN" - "$FRONTEND_PORT" <<'PY'
