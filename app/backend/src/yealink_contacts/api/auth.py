@@ -13,6 +13,7 @@ from yealink_contacts.schemas.auth import (
     PasskeyCredentialResponse,
     PasskeyRegistrationOptionsRequest,
     PasskeyRegistrationVerifyRequest,
+    PasskeySuggestedLabelResponse,
     PublicKeyOptionsResponse,
 )
 from yealink_contacts.schemas.common import MessageResponse
@@ -22,6 +23,7 @@ from yealink_contacts.services.auth_service import (
     delete_passkey,
     generate_passkey_authentication_options,
     generate_passkey_registration_options,
+    get_passkey_suggested_label,
     list_passkeys,
     login_with_password,
     logout_session,
@@ -66,6 +68,15 @@ def update_password(
 @router.get("/passkeys", response_model=list[PasskeyCredentialResponse])
 def passkeys(admin_user: AdminUser = Depends(current_admin_user), db: Session = Depends(db_session)) -> list[PasskeyCredentialResponse]:
     return [PasskeyCredentialResponse.model_validate(item) for item in list_passkeys(db, admin_user)]
+
+
+@router.get("/passkeys/suggested-label", response_model=PasskeySuggestedLabelResponse)
+def passkey_suggested_label(
+    request: Request,
+    admin_user: AdminUser = Depends(current_admin_user),
+) -> PasskeySuggestedLabelResponse:
+    del admin_user
+    return get_passkey_suggested_label(request)
 
 
 @router.post("/passkeys/registration/options", response_model=PublicKeyOptionsResponse)

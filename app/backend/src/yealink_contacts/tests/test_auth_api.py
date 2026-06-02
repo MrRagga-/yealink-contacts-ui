@@ -214,6 +214,44 @@ def test_debug_acl_logging_reports_resolved_client_ip(client, db, monkeypatch):
     ]
 
 
+def test_passkey_suggested_label_returns_device_hostname(admin_client, monkeypatch):
+    monkeypatch.setattr(
+        "yealink_contacts.services.network_security.socket.getfqdn",
+        lambda: "jonas-macbook.local",
+    )
+
+    response = admin_client.get("/api/auth/passkeys/suggested-label")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["device_hostname"] == "jonas-macbook.local"
+    assert payload["site_hostname"]
+
+
+def test_dev_passkey_registration_uses_browser_origin(admin_client, monkeypatch):
+    from yealink_contacts.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "frontend_origin", "https://yealink-contacts-ui.weismueller.org")
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "webauthn_rp_id", None)
+    monkeypatch.setattr(settings, "webauthn_rp_origin", None)
+
+    for headers, expected_rp_id in (
+        ({"Origin": "http://127.0.0.1:5173"}, "127.0.0.1"),
+        ({"X-Client-Origin": "http://localhost:5173"}, "localhost"),
+        ({"Referer": "http://localhost:5173/settings"}, "localhost"),
+    ):
+        response = admin_client.post(
+            "/api/auth/passkeys/registration/options",
+            json={"label": "Local laptop"},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["options"]["rp"]["id"] == expected_rp_id
+
+
 def test_passkey_registration_and_authentication_flow(admin_client, db, monkeypatch):
     monkeypatch.setattr(
         "yealink_contacts.services.auth_service.verify_registration_response",

@@ -18,6 +18,11 @@ export type PasskeyCredential = {
   last_used_at?: string | null;
 };
 
+export type PasskeySuggestedLabel = {
+  device_hostname: string | null;
+  site_hostname: string | null;
+};
+
 export type AppSettings = {
   app_version: string;
   release_model: string;

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from urllib.parse import urlparse
 
+import structlog
 from fastapi import HTTPException, Request, status
 from pwdlib import PasswordHash
 from sqlalchemy import func, select
@@ -25,6 +26,8 @@ from webauthn.helpers.structs import (
 )
 
 from yealink_contacts.core.config import get_settings
+from yealink_contacts.schemas.auth import PasskeySuggestedLabelResponse
+from yealink_contacts.services.network_security import resolve_client_device_hostname, resolve_client_ip
 from yealink_contacts.models.auth import AdminUser, PasskeyCredential
 from yealink_contacts.schemas.auth import AuthenticatedAdminResponse
 from yealink_contacts.services.audit import write_audit_log
@@ -32,6 +35,9 @@ from yealink_contacts.services.audit import write_audit_log
 SESSION_USER_ID_KEY = "admin_user_id"
 SESSION_REGISTRATION_KEY = "passkey_registration"
 SESSION_AUTHENTICATION_KEY = "passkey_authentication"
+LOCAL_DEV_WEBAUTHN_HOSTS = frozenset({"localhost", "127.0.0.1"})
+logger = structlog.get_logger(__name__)
+CLIENT_ORIGIN_HEADER = "x-client-origin"
 
 password_hash = PasswordHash.recommended()
 
@@ -265,19 +271,53 @@ def get_rp_name() -> str:
     return settings.webauthn_rp_name or settings.app_name
 
 
-def get_rp_origin() -> str:
-    settings = get_settings()
-    return settings.webauthn_rp_origin or settings.frontend_origin
+def _dev_browser_origin(request: Request) -> str | None:
+    """Infer the SPA origin during local dev (same-origin fetches often omit Origin)."""
+    for header in ("origin", "referer", CLIENT_ORIGIN_HEADER):
+        value = request.headers.get(header)
+        if not value:
+            continue
+        parsed = urlparse(value)
+        if parsed.hostname not in LOCAL_DEV_WEBAUTHN_HOSTS or parsed.scheme not in ("http", "https"):
+            continue
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    return None
 
 
-def get_rp_id() -> str:
+def resolve_webauthn_context(request: Request) -> tuple[str, str]:
+    """Return `(origin, rp_id)` for the current WebAuthn ceremony."""
     settings = get_settings()
+    configured_origin = (settings.webauthn_rp_origin or settings.frontend_origin).rstrip("/")
     if settings.webauthn_rp_id:
-        return settings.webauthn_rp_id
-    hostname = urlparse(get_rp_origin()).hostname
-    if not hostname:
-        raise RuntimeError("Unable to determine WebAuthn RP ID from frontend origin.")
-    return hostname
+        configured_rp_id = settings.webauthn_rp_id
+    else:
+        hostname = urlparse(configured_origin).hostname
+        if not hostname:
+            raise RuntimeError("Unable to determine WebAuthn RP ID from frontend origin.")
+        configured_rp_id = hostname
+
+    if settings.app_env != "development":
+        return configured_origin, configured_rp_id
+
+    browser_origin = _dev_browser_origin(request)
+    if not browser_origin:
+        return configured_origin, configured_rp_id
+
+    parsed = urlparse(browser_origin)
+    return browser_origin, parsed.hostname or configured_rp_id
+
+
+def get_passkey_suggested_label(request: Request) -> PasskeySuggestedLabelResponse:
+    settings = get_settings()
+    peer_host = request.client.host if request.client else None
+    forwarded_for = request.headers.get("x-forwarded-for")
+    client_ip = resolve_client_ip(peer_host, forwarded_for, settings.resolved_trusted_proxy_cidrs)
+    device_hostname = resolve_client_device_hostname(client_ip)
+    site_hostname = urlparse(resolve_webauthn_context(request)[0]).hostname
+    return PasskeySuggestedLabelResponse(
+        device_hostname=device_hostname,
+        site_hostname=site_hostname,
+    )
 
 
 def generate_passkey_registration_options(
@@ -286,25 +326,34 @@ def generate_passkey_registration_options(
     db: Session,
     label: str,
 ) -> dict[str, object]:
+    rp_origin, rp_id = resolve_webauthn_context(request)
+    if get_settings().app_env == "development":
+        logger.info(
+            "webauthn_registration_options",
+            rp_id=rp_id,
+            rp_origin=rp_origin,
+            request_origin=request.headers.get("origin"),
+            request_referer=request.headers.get("referer"),
+            client_origin=request.headers.get(CLIENT_ORIGIN_HEADER),
+        )
     challenge = secrets.token_bytes(32)
+    # Do not pass exclude_credentials: when the only available authenticator already
+    # holds a registered credential, browsers return NotAllowedError and block a second
+    # passkey (e.g. another browser profile). Duplicate credential IDs are rejected in
+    # verify_passkey_registration instead.
     options = generate_registration_options(
-        rp_id=get_rp_id(),
+        rp_id=rp_id,
         rp_name=get_rp_name(),
         user_name=admin_user.username,
         user_id=admin_user.id.encode("utf-8"),
         user_display_name=admin_user.username,
         challenge=challenge,
-        exclude_credentials=[
-            PublicKeyCredentialDescriptor(
-                id=base64url_to_bytes(passkey.credential_id),
-                transports=[AuthenticatorTransport(transport) for transport in passkey.transports if transport],
-            )
-            for passkey in list_passkeys(db, admin_user)
-        ],
     )
     request.session[SESSION_REGISTRATION_KEY] = {
         "challenge": bytes_to_base64url(challenge),
         "label": label.strip() or "Passkey",
+        "origin": rp_origin,
+        "rp_id": rp_id,
     }
     return json.loads(options_to_json(options))
 
@@ -319,11 +368,13 @@ def verify_passkey_registration(
     if not isinstance(session_data, dict) or "challenge" not in session_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active passkey registration.")
 
+    rp_origin = str(session_data.get("origin") or resolve_webauthn_context(request)[0])
+    rp_id = str(session_data.get("rp_id") or resolve_webauthn_context(request)[1])
     verified = verify_registration_response(
         credential=credential,
         expected_challenge=base64url_to_bytes(str(session_data["challenge"])),
-        expected_rp_id=get_rp_id(),
-        expected_origin=get_rp_origin(),
+        expected_rp_id=rp_id,
+        expected_origin=rp_origin,
     )
     credential_id = bytes_to_base64url(verified.credential_id)
     duplicate = db.execute(
@@ -368,9 +419,10 @@ def generate_passkey_authentication_options(request: Request, db: Session) -> di
     if not passkeys:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No passkeys are registered.")
 
+    rp_origin, rp_id = resolve_webauthn_context(request)
     challenge = secrets.token_bytes(32)
     options = generate_authentication_options(
-        rp_id=get_rp_id(),
+        rp_id=rp_id,
         challenge=challenge,
         allow_credentials=[
             PublicKeyCredentialDescriptor(
@@ -381,7 +433,11 @@ def generate_passkey_authentication_options(request: Request, db: Session) -> di
         ],
         user_verification=UserVerificationRequirement.PREFERRED,
     )
-    request.session[SESSION_AUTHENTICATION_KEY] = {"challenge": bytes_to_base64url(challenge)}
+    request.session[SESSION_AUTHENTICATION_KEY] = {
+        "challenge": bytes_to_base64url(challenge),
+        "origin": rp_origin,
+        "rp_id": rp_id,
+    }
     return json.loads(options_to_json(options))
 
 
@@ -402,11 +458,13 @@ def verify_passkey_authentication(request: Request, db: Session, credential: dic
     if passkey is None or not passkey.admin_user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passkey assertion.")
 
+    rp_origin = str(session_data.get("origin") or resolve_webauthn_context(request)[0])
+    rp_id = str(session_data.get("rp_id") or resolve_webauthn_context(request)[1])
     verified = verify_authentication_response(
         credential=credential,
         expected_challenge=base64url_to_bytes(str(session_data["challenge"])),
-        expected_rp_id=get_rp_id(),
-        expected_origin=get_rp_origin(),
+        expected_rp_id=rp_id,
+        expected_origin=rp_origin,
         credential_public_key=base64url_to_bytes(passkey.public_key),
         credential_current_sign_count=passkey.sign_count,
     )

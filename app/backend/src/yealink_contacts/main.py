@@ -49,7 +49,7 @@ app.add_middleware(
     allow_origins=[settings.frontend_origin],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-Client-Origin"],
 )
 class AccessControlMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

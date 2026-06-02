@@ -1,10 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration } from "@simplewebauthn/browser";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "../auth/AuthProvider";
 import { useToast } from "../../hooks/useToast";
 import { api } from "../../lib/api";
+import { buildPasskeyLabel, buildPasskeyLabelFromBrowser } from "./buildPasskeyLabel";
+
+function formatPasskeyClientError(error: Error): string {
+  if (error.name === "InvalidStateError" || error.message.includes("InvalidStateError")) {
+    return "This authenticator already has a passkey for this site. Remove the existing entry first, or use another browser or security key.";
+  }
+  if (error.message.includes("not allowed by the user agent")) {
+    return (
+      "The browser blocked the passkey request. Accept the system passkey prompt, or cancel and retry. " +
+      "For local dev use http://localhost:5173 consistently."
+    );
+  }
+  return error.message;
+}
 
 export function useSettingsPage() {
   const { user, refresh } = useAuth();
@@ -15,7 +29,17 @@ export function useSettingsPage() {
     queryKey: ["auth", "passkeys"],
     queryFn: api.listPasskeys,
   });
-  const [passkeyLabel, setPasskeyLabel] = useState("This device");
+  const suggestedLabelQuery = useQuery({
+    queryKey: ["auth", "passkeys", "suggested-label"],
+    queryFn: api.getPasskeySuggestedLabel,
+  });
+  const [passkeyLabel, setPasskeyLabel] = useState(buildPasskeyLabelFromBrowser);
+
+  useEffect(() => {
+    if (suggestedLabelQuery.data) {
+      setPasskeyLabel(buildPasskeyLabel(suggestedLabelQuery.data));
+    }
+  }, [suggestedLabelQuery.data]);
 
   const updateMutation = useMutation({
     mutationFn: api.updateAppSettings,
@@ -36,11 +60,15 @@ export function useSettingsPage() {
     },
     onSuccess: async () => {
       toast.push("success", "Passkey added.");
-      setPasskeyLabel("This device");
       await queryClient.invalidateQueries({ queryKey: ["auth", "passkeys"] });
+      const suggested = await queryClient.fetchQuery({
+        queryKey: ["auth", "passkeys", "suggested-label"],
+        queryFn: api.getPasskeySuggestedLabel,
+      });
+      setPasskeyLabel(buildPasskeyLabel(suggested));
       await refresh();
     },
-    onError: (error: Error) => toast.push("error", error.message),
+    onError: (error: Error) => toast.push("error", formatPasskeyClientError(error)),
   });
 
   const deletePasskeyMutation = useMutation({

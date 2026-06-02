@@ -297,7 +297,7 @@ test("settings page renders the security section and registered passkeys", async
 
     if (url.endsWith("/api/settings") && method === "GET") {
       return jsonResponse({
-        app_version: "0.2.7",
+        app_version: "0.2.8",
         release_model: "Semantic Versioning via Git tags",
         default_new_source_type: "carddav",
         default_new_source_merge_strategy: "upsert_only",
@@ -311,6 +311,13 @@ test("settings page renders the security section and registered passkeys", async
         debug_enabled: false,
         admin_allowed_cidrs: ["0.0.0.0/0", "::/0"],
         xml_allowed_cidrs: ["192.168.1.0/24"],
+      });
+    }
+
+    if (url.endsWith("/api/auth/passkeys/suggested-label") && method === "GET") {
+      return jsonResponse({
+        device_hostname: "office-macbook.local",
+        site_hostname: "localhost",
       });
     }
 
@@ -335,5 +342,6 @@ test("settings page renders the security section and registered passkeys", async
   expect(await screen.findByRole("heading", { name: "Security" })).toBeInTheDocument();
   expect(await screen.findByText("Office MacBook")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("Office MacBook")).toBeInTheDocument();
+  expect(screen.getByDisplayValue(/office-macbook\.local/)).toBeInTheDocument();
   expect(screen.getByRole("checkbox", { name: /Enable debug logging/i })).not.toBeChecked();
 });

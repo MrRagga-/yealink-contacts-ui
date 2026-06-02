@@ -13,6 +13,7 @@ import type {
   ExportProfile,
   LogsResponse,
   PasskeyCredential,
+  PasskeySuggestedLabel,
   AppSettings,
   Source,
   SourceAddressbook,
@@ -38,12 +39,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    headers.set("X-Client-Origin", window.location.origin);
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
     ...init,
   });
 
@@ -79,6 +82,7 @@ export const api = {
   changePassword: (payload: { current_password: string; new_password: string }) =>
     request<AuthenticatedAdmin>("/api/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
   listPasskeys: () => request<PasskeyCredential[]>("/api/auth/passkeys"),
+  getPasskeySuggestedLabel: () => request<PasskeySuggestedLabel>("/api/auth/passkeys/suggested-label"),
   getPasskeyRegistrationOptions: (payload: { label: string }) =>
     request<{ options: PublicKeyCredentialCreationOptionsJSON }>("/api/auth/passkeys/registration/options", {
       method: "POST",

@@ -1,20 +1,12 @@
-<p align="center">
-  <img src="app/frontend/public/logo-mark.svg" alt="Yealink Contacts Sync logo" width="160" />
-</p>
+TRUSTED_PROXY_CIDRS
 
-<h1 align="center">Yealink Contacts Sync</h1>
 
-<p align="center">
-  Import, normalize, filter, preview, and publish remote phonebooks with a Yealink-focused admin UI.
-</p>
 
-<p align="center">
-  <a href="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/ci.yml"><img src="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/release.yml"><img src="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/release.yml/badge.svg" alt="Release" /></a>
-  <a href="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/codeql.yml"><img src="https://github.com/MrRagga-/yealink-contacts-ui/actions/workflows/codeql.yml/badge.svg" alt="CodeQL" /></a>
-  <a href="https://hub.docker.com/r/mrragga/yealink-contacts-ui"><img src="https://img.shields.io/docker/pulls/mrragga/yealink-contacts-ui?logo=docker" alt="Docker Hub pulls" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="Apache 2.0 License" /></a>
-</p>
+# Yealink Contacts Sync
+
+Import, normalize, filter, preview, and publish remote phonebooks with a Yealink-focused admin UI.
+
+
 
 Local admin tool for importing, normalizing, filtering, previewing, and serving contacts as Yealink Remote Phonebook XML.
 
@@ -92,14 +84,9 @@ The GitHub release workflow is configured to:
 4. Frontend: [http://localhost:5173](http://localhost:5173)
 5. Backend/OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend. The backend and database are not published on host ports; reach the API through the frontend proxy or use `docker-compose.dev.yml` for direct backend access during development.
-
-If you enforce admin or XML CIDR allowlists behind the bundled frontend/nginx proxy, set `TRUSTED_PROXY_CIDRS` to the frontend container's pinned `app-internal` address (`172.29.24.4/32` in the default stack). Trust only that hop, not your internet-facing reverse proxy. The backend walks `X-Forwarded-For` from the right and resolves the first untrusted client IP:
-
-- LAN phones hitting the frontend LAN IP directly resolve to their real device IP; whitelist specific `/32` entries in Settings.
-- Internet requests that pass through Nginx Proxy Manager resolve to the proxy IP (for example `192.168.23.42`); keep that address out of the allowlists.
-
-Do not use broad ranges such as `192.168.23.0/24` if your reverse proxy shares that subnet, and remove `::/0` from XML allowlists. Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
+The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
+If you plan to enforce admin or XML CIDR allowlists behind a reverse proxy, also set `TRUSTED_PROXY_CIDRS` so the backend trusts the proxy hop and evaluates the real client IP from `X-Forwarded-For`.
+Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
 The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests. For published images, do not override the backend command with `uv run ...`; use `alembic upgrade head && exec python -m uvicorn ...` if you must customize the runtime command.
 
 ### Option 2: Docker Compose with local image builds
@@ -191,7 +178,7 @@ Bootstrap behavior:
 
 Important runtime settings:
 
-- `TRUSTED_PROXY_CIDRS`: comma-separated list of reverse-proxy hops the backend trusts when reading `X-Forwarded-For`. In the default Docker stack this should be only the frontend container (`172.29.24.4/32`).
+- `TRUSTED_PROXY_CIDRS`: comma-separated proxy CIDRs that are allowed to supply `X-Forwarded-For`
 - `ADMIN_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted admin allowlist
 - `XML_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted XML allowlist
 - `SESSION_COOKIE_NAME`: optional override for the signed admin session cookie name
@@ -205,6 +192,12 @@ Defaults:
 - `WEBAUTHN_RP_ORIGIN` falls back to `FRONTEND_ORIGIN`
 - `WEBAUTHN_RP_NAME` falls back to `APP_NAME`
 - `WEBAUTHN_RP_ID` falls back to the hostname part of `FRONTEND_ORIGIN`
+
+Local passkey development:
+
+- `http://localhost` and `http://127.0.0.1` are secure contexts; plain HTTP on other hostnames is not.
+- Use the same hostname in the browser and in `FRONTEND_ORIGIN` (`localhost` and `127.0.0.1` are not interchangeable for WebAuthn).
+- With `APP_ENV=development`, the backend derives WebAuthn `origin` / `rpId` from the browser `Origin` header when it is `http://localhost:*` or `http://127.0.0.1:*`, so a production `FRONTEND_ORIGIN` in `.env` does not break local passkey testing.
 
 ### Local admin CLI
 
@@ -244,11 +237,10 @@ uv run python -m yealink_contacts.jobs.seed_demo
 3. Create a `google` source in the UI
 4. Enter the client ID, client secret, and redirect URI directly on the source
 5. Register the exact same redirect URI in Google, for example:
-   - `http://localhost:8000/api/sources/oauth/google/callback`
+  - `http://localhost:8000/api/sources/oauth/google/callback`
 6. In the source list, click `Google OAuth`
-7. Complete the consent flow and approve contacts access
-8. If connection testing fails with an insufficient-scope error, revoke the app under your Google account security settings and run `Google OAuth` again
-9. Run `Start sync`
+7. Complete the consent flow
+8. Run `Start sync`
 
 ### CardDAV and Nextcloud
 
@@ -277,13 +269,11 @@ Contact updates already happen during sync through upsert behavior keyed by `sou
 1. Create or edit an export profile in `Rules`
 2. Validate the result in `Export / Yealink`
 3. Copy the XML endpoint, for example:
-   - `http://<frontend-lan-ip>/api/yealink/phonebook/default.xml`
-4. If XML CIDR allowlists are enabled, whitelist the specific phone or provisioning host `/32` entries in Settings (for example `192.168.23.123/32`). Do not include your internet-facing reverse proxy IP.
-5. Point phones at the frontend LAN URL when possible, for example:
-   - `http://<frontend-lan-ip>/api/yealink/phonebook/default.xml`
-6. In Yealink, configure the remote phonebook under:
-   - `Directory > Remote Phonebook`
-7. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
+  - `http://<tool-host>:8000/api/yealink/phonebook/default.xml`
+4. If XML CIDR allowlists are enabled, make sure the phones or provisioning network are inside the allowed ranges
+5. In Yealink, configure the remote phonebook under:
+  - `Directory > Remote Phonebook`
+6. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
 
 ## Container publishing
 
@@ -297,15 +287,14 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.7
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.7
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.6
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.6
 ```
 
 Compose files:
 
-- `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default, pins the frontend on `app-internal` at `172.29.24.4`, and does not publish db/backend ports on the host
-- `docker-compose.dev.yml` builds the images locally from this repository and keeps db/backend ports for development
-- `docker-compose.prod.example.yml` shows a QNAP/macvlan stack with an external LAN network alongside `app-internal`
+- `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default
+- `docker-compose.dev.yml` builds the images locally from this repository
 
 If you maintain your own stack file, keep these runtime requirements in place:
 
@@ -391,3 +380,4 @@ Recommended next steps after publishing:
 - Logs do not contain decrypted credentials
 - Audit logs and job events are exposed through `/api/logs`
 - `PHONEBOOK_BASE_URL` is gone; `XML_PUBLIC_BASE_URL` is optional and falls back to `FRONTEND_ORIGIN`
+

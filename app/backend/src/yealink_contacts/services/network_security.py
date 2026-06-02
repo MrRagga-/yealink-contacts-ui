@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 from typing import Iterable
 
@@ -58,3 +59,22 @@ def resolve_client_ip(
             continue
         return forwarded_ip
     return peer_ip
+
+
+def _normalize_device_hostname(value: str) -> str | None:
+    name = value.strip().rstrip(".")
+    if not name or name.lower() == "localhost":
+        return None
+    return name
+
+
+def resolve_client_device_hostname(client_ip: IPv4Address | IPv6Address) -> str | None:
+    """Best-effort client device hostname (reverse DNS, or local FQDN on loopback)."""
+    if client_ip.is_loopback:
+        return _normalize_device_hostname(socket.getfqdn() or socket.gethostname())
+
+    try:
+        hostname, _, _ = socket.gethostbyaddr(str(client_ip))
+    except OSError:
+        return None
+    return _normalize_device_hostname(hostname)

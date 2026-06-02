@@ -35,6 +35,11 @@ class PasskeyCredentialResponse(BaseModel):
     last_used_at: datetime | None = None
 
 
+class PasskeySuggestedLabelResponse(BaseModel):
+    device_hostname: str | None = None
+    site_hostname: str | None = None
+
+
 class PasskeyRegistrationOptionsRequest(BaseModel):
     label: str = Field(default="Passkey", min_length=1, max_length=120)
 
