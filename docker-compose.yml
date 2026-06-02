@@ -4,9 +4,7 @@ services:
     environment:
       POSTGRES_DB: yealink_contacts
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "${DB_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -14,14 +12,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-internal
 
   backend:
     image: ${BACKEND_IMAGE:-docker.io/mrragga/yealink-contacts-ui:backend-latest}
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@db:5432/yealink_contacts}
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/yealink_contacts}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.29.24.4/32}
     depends_on:
       db:
         condition: service_healthy
@@ -36,10 +38,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     command: >
       /bin/sh -c "alembic upgrade head && exec python -m uvicorn yealink_contacts.main:app --host 0.0.0.0 --port 8000"
+    networks:
+      - app-internal
 
   frontend:
     image: ${FRONTEND_IMAGE:-docker.io/mrragga/yealink-contacts-ui:frontend-latest}
@@ -50,6 +52,16 @@ services:
         condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:80"
+    networks:
+      app-internal:
+        ipv4_address: 172.29.24.4
+
+networks:
+  app-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.24.0/22
 
 volumes:
   postgres-data:

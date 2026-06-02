@@ -112,37 +112,14 @@ test("app signs in and transitions into the dashboard", async () => {
   expect(await screen.findByRole("heading", { name: "Sign in to Yealink Contacts Sync" })).toBeInTheDocument();
 
   const user = userEvent.setup();
-  await user.clear(screen.getByLabelText("Username"));
   await user.type(screen.getByLabelText("Username"), "admin");
-  await user.clear(screen.getByLabelText("Password"));
   await user.type(screen.getByLabelText("Password"), "admin");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
   expect(await screen.findByRole("heading", { name: "Synchronization status" })).toBeInTheDocument();
 });
 
-test("login form keeps bootstrap defaults only before the password has been changed", async () => {
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const url = typeof input === "string" ? input : input.toString();
-    const method = init?.method ?? "GET";
-
-    if (url.endsWith("/api/auth/me") && method === "GET") {
-      return jsonResponse({ detail: "Authentication required." }, 401);
-    }
-
-    throw new Error(`Unexpected request: ${method} ${url}`);
-  });
-
-  renderWithProviders(<App />);
-
-  expect(await screen.findByRole("heading", { name: "Sign in to Yealink Contacts Sync" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Username")).toHaveValue("admin");
-  expect(screen.getByLabelText("Password")).toHaveValue("admin");
-});
-
-test("login form is blank after the bootstrap password has been changed", async () => {
-  window.localStorage.setItem("yealink-contacts-ui.bootstrap-password-changed", "true");
-
+test("login form starts with empty credentials", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = typeof input === "string" ? input : input.toString();
     const method = init?.method ?? "GET";
@@ -161,7 +138,7 @@ test("login form is blank after the bootstrap password has been changed", async 
   expect(screen.getByLabelText("Password")).toHaveValue("");
 });
 
-test("manual login still works after bootstrap defaults are cleared", async () => {
+test("manual login works with typed credentials", async () => {
   window.localStorage.setItem("yealink-contacts-ui.bootstrap-password-changed", "true");
 
   let meCount = 0;
@@ -320,7 +297,7 @@ test("settings page renders the security section and registered passkeys", async
 
     if (url.endsWith("/api/settings") && method === "GET") {
       return jsonResponse({
-        app_version: "0.2.6",
+        app_version: "0.2.7",
         release_model: "Semantic Versioning via Git tags",
         default_new_source_type: "carddav",
         default_new_source_merge_strategy: "upsert_only",

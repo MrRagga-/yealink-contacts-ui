@@ -92,9 +92,14 @@ The GitHub release workflow is configured to:
 4. Frontend: [http://localhost:5173](http://localhost:5173)
 5. Backend/OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend.
-If you plan to enforce admin or XML CIDR allowlists behind a reverse proxy, also set `TRUSTED_PROXY_CIDRS` so the backend trusts the proxy hop and evaluates the real client IP from `X-Forwarded-For`.
-Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
+The default Compose file uses the published Docker Hub images, serves the frontend through Nginx on port `5173`, and proxies `/api` and `/healthz` to the backend. The backend and database are not published on host ports; reach the API through the frontend proxy or use `docker-compose.dev.yml` for direct backend access during development.
+
+If you enforce admin or XML CIDR allowlists behind the bundled frontend/nginx proxy, set `TRUSTED_PROXY_CIDRS` to the frontend container's pinned `app-internal` address (`172.29.24.4/32` in the default stack). Trust only that hop, not your internet-facing reverse proxy. The backend walks `X-Forwarded-For` from the right and resolves the first untrusted client IP:
+
+- LAN phones hitting the frontend LAN IP directly resolve to their real device IP; whitelist specific `/32` entries in Settings.
+- Internet requests that pass through Nginx Proxy Manager resolve to the proxy IP (for example `192.168.23.42`); keep that address out of the allowlists.
+
+Do not use broad ranges such as `192.168.23.0/24` if your reverse proxy shares that subnet, and remove `::/0` from XML allowlists. Localhost is always allowed even when the persisted allowlists are restrictive. If you lock yourself out remotely, set `ADMIN_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` (and `XML_ALLOWED_CIDRS_OVERRIDE=0.0.0.0/0,::/0` if needed) in the backend environment, restart the backend, and then correct the saved settings.
 The backend image runs `alembic upgrade head` on startup so standalone container runs apply the schema before serving requests. For published images, do not override the backend command with `uv run ...`; use `alembic upgrade head && exec python -m uvicorn ...` if you must customize the runtime command.
 
 ### Option 2: Docker Compose with local image builds
@@ -186,7 +191,7 @@ Bootstrap behavior:
 
 Important runtime settings:
 
-- `TRUSTED_PROXY_CIDRS`: comma-separated proxy CIDRs that are allowed to supply `X-Forwarded-For`
+- `TRUSTED_PROXY_CIDRS`: comma-separated list of reverse-proxy hops the backend trusts when reading `X-Forwarded-For`. In the default Docker stack this should be only the frontend container (`172.29.24.4/32`).
 - `ADMIN_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted admin allowlist
 - `XML_ALLOWED_CIDRS_OVERRIDE`: optional comma-separated emergency override for the persisted XML allowlist
 - `SESSION_COOKIE_NAME`: optional override for the signed admin session cookie name
@@ -271,11 +276,13 @@ Contact updates already happen during sync through upsert behavior keyed by `sou
 1. Create or edit an export profile in `Rules`
 2. Validate the result in `Export / Yealink`
 3. Copy the XML endpoint, for example:
-   - `http://<tool-host>:8000/api/yealink/phonebook/default.xml`
-4. If XML CIDR allowlists are enabled, make sure the phones or provisioning network are inside the allowed ranges
-5. In Yealink, configure the remote phonebook under:
+   - `http://<frontend-lan-ip>/api/yealink/phonebook/default.xml`
+4. If XML CIDR allowlists are enabled, whitelist the specific phone or provisioning host `/32` entries in Settings (for example `192.168.23.123/32`). Do not include your internet-facing reverse proxy IP.
+5. Point phones at the frontend LAN URL when possible, for example:
+   - `http://<frontend-lan-ip>/api/yealink/phonebook/default.xml`
+6. In Yealink, configure the remote phonebook under:
    - `Directory > Remote Phonebook`
-6. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
+7. For centrally managed devices, roll out the Yealink provisioning keys that reference this XML URL
 
 ## Container publishing
 
@@ -289,14 +296,15 @@ The release workflow publishes:
 Example pulls:
 
 ```bash
-docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.6
-docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.6
+docker pull <dockerhub-user>/yealink-contacts-ui:backend-0.2.7
+docker pull <dockerhub-user>/yealink-contacts-ui:frontend-0.2.7
 ```
 
 Compose files:
 
-- `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default
-- `docker-compose.dev.yml` builds the images locally from this repository
+- `docker-compose.yml` uses the published `backend-latest` and `frontend-latest` images by default, pins the frontend on `app-internal` at `172.29.24.4`, and does not publish db/backend ports on the host
+- `docker-compose.dev.yml` builds the images locally from this repository and keeps db/backend ports for development
+- `docker-compose.prod.example.yml` shows a QNAP/macvlan stack with an external LAN network alongside `app-internal`
 
 If you maintain your own stack file, keep these runtime requirements in place:
 

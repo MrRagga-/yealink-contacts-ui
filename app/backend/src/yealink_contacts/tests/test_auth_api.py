@@ -117,6 +117,70 @@ def test_trusted_proxy_resolution_normalizes_ipv4_mapped_forwarded_addresses():
     assert str(forwarded) == "192.168.23.50"
 
 
+def test_trusted_proxy_resolution_lan_direct_via_frontend():
+    trusted = ["172.29.24.4/32"]
+
+    resolved = resolve_client_ip("172.29.24.4", "192.168.23.50", trusted)
+
+    assert str(resolved) == "192.168.23.50"
+
+
+def test_trusted_proxy_resolution_internet_via_npm_collapses_to_proxy_ip():
+    trusted = ["172.29.24.4/32"]
+
+    resolved = resolve_client_ip("172.29.24.4", "203.0.113.9, 192.168.23.42", trusted)
+
+    assert str(resolved) == "192.168.23.42"
+
+
+def test_trusted_proxy_resolution_ignores_spoofed_leftmost_lan_ip():
+    trusted = ["172.29.24.4/32"]
+
+    resolved = resolve_client_ip(
+        "172.29.24.4",
+        "192.168.23.50, 203.0.113.9, 192.168.23.42",
+        trusted,
+    )
+
+    assert str(resolved) == "192.168.23.42"
+
+
+def test_xml_acl_allows_lan_direct_and_blocks_internet_via_npm(client, db):
+    db.add(AppSetting(key="xml_allowed_cidrs", value=["192.168.23.50/32"]))
+    db.commit()
+
+    allowed = client.get(
+        "/api/yealink/phonebook/default.xml",
+        headers={"X-Forwarded-For": "192.168.23.50"},
+    )
+    blocked = client.get(
+        "/api/yealink/phonebook/default.xml",
+        headers={"X-Forwarded-For": "203.0.113.9, 192.168.23.42"},
+    )
+
+    assert allowed.status_code == 200
+    assert blocked.status_code == 403
+
+
+def test_admin_acl_allows_per_device_whitelist(client, db):
+    db.add(AppSetting(key="admin_allowed_cidrs", value=["192.168.23.123/32", "192.168.23.222/32"]))
+    db.commit()
+
+    allowed = client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "admin"},
+        headers={"X-Forwarded-For": "192.168.23.123"},
+    )
+    blocked = client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "admin"},
+        headers={"X-Forwarded-For": "192.168.23.50"},
+    )
+
+    assert allowed.status_code == 200
+    assert blocked.status_code == 403
+
+
 def test_debug_acl_logging_reports_resolved_client_ip(client, db, monkeypatch):
     captured: list[dict[str, object]] = []
 

@@ -52,8 +52,9 @@ def resolve_client_ip(
     if not x_forwarded_for or not ip_matches_cidrs(peer_ip, trusted_proxy_cidrs):
         return peer_ip
 
-    for part in x_forwarded_for.split(","):
+    for part in reversed(x_forwarded_for.split(",")):
         forwarded_ip = parse_ip(part)
-        if forwarded_ip is not None:
-            return forwarded_ip
+        if forwarded_ip is None or ip_matches_cidrs(forwarded_ip, trusted_proxy_cidrs):
+            continue
+        return forwarded_ip
     return peer_ip
